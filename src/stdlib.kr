@@ -1,0 +1,7 @@
+define writeln proc(msg) {
+    syscall io.outputln msg
+}
+
+define readln proc() {
+    return [syscall io.input]
+}
