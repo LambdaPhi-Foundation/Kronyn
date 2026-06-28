@@ -93,8 +93,6 @@ The minimal kernel provides a set of essential primitives:
 
 ## -> Getting Started
 
-
-
 ### Prerequisites
 - Nim Compiler (`choosenim` or `nim install`)
 
