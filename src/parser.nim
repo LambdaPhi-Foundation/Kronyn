@@ -17,7 +17,7 @@ proc advance(p: var Parser): Token =
   result = p.tokens[p.pos]
   inc p.pos
 
-proc isAtEnd(p: Parser): bool =
+proc isAtEnd*(p: Parser): bool =
   p.peek().kind == tkEof
 
 proc skipNewLines*(p: var Parser) = 

@@ -40,13 +40,19 @@ proc getCmd*(env: Env, name: string): CommandFn =
 proc registerCmd*(env: Env, name: string, fn: CommandFn) = 
   env.cmds[name] = fn
 
+proc hasVar*(env: Env, name: string): bool =
+  if name in env.vars: return true
+  if env.parent != nil: return env.parent.hasVar(name)
+  false
+
 #----declare first cause shit's ain't C -----------------------
 
 proc eval*(env: Env, program: Program): Value
 proc evalStmt*(env: Env, stmt: Stmt): Value
 proc evalArg*(env: Env, arg: Arg): Value 
 proc evalSub*(env: Env, src: string): Value
-proc evalBlock*(env: Env, src: string): Value
+proc evalBlock*(env: Env, src: string, createChild: bool = true): Value
+proc evalArgChain(env: Env, arg: Arg): Value 
 
 #------- Return type shit?------------------------------------
 
@@ -68,6 +74,18 @@ proc evalChainCall(env: Env, receiver: Value, call: ChainCall): Value =
     raise newException(ValueError, "unknown method: " & call.name)
 
   fn(env, args)
+
+  
+proc callFn(env: Env, params: seq[string], body: string, args: seq[Value]): Value =
+  let child = newEnv(env)
+  for i, p in params:
+    if i < args.len:
+      child.setVar(p, args[i])
+  try:
+    result = child.evalBlock(body, createChild = false)
+  except ReturnSignal as r:
+    result = r.value
+
 
 proc substituteVars*(env: Env, s: string): Value =
   var result = ""
@@ -116,8 +134,8 @@ proc evalArg*(env: Env, arg: Arg): Value =
       arg.str
 
     of argWord:
-      let v = env.getVar(arg.word)
-      if v != "": return v
+      if env.hasVar(arg.word):
+        return env.getVar(arg.word)
       arg.word
     
     of argSub:
@@ -127,11 +145,7 @@ proc evalArg*(env: Env, arg: Arg): Value =
       arg.body
 
     of argChain:
-      var val = env.getVar(arg.receiver)
-      if val == "": val = arg.receiver
-      for call in arg.calls:
-        val = env.evalChainCall(val, call)
-      val
+      env.evalArgChain(arg)
 
     of argInfix:
       let l = env.evalArg(arg.left)
@@ -179,20 +193,31 @@ proc evalSub*(env: Env, src: string): Value =
   let tokens = tokenize(src)
   var p = newParser(tokens)
   p.skipNewLines()
-  let first = parser.peek(p)
-  if first.kind == tkWord and first.lexeme in ["syscall", "return", "evolve", "import"]:
-    let stmt = p.parseStmt()
-    return env.evalStmt(stmt)
+  if p.isAtEnd(): return ""
 
-  let arg = p.parseArg()
-  env.evalArg(arg)
+  let first = p.peek()
+  let second = if p.pos + 1 < p.tokens.len: p.tokens[p.pos + 1]
+               else: Token(kind: tkEof)
 
-proc evalBlock*(env: Env, src: string): Value =
+  if second.kind in {tkPlus, tkMinus, tkStar, tkSlash,
+                      tkEqEq, tkBangEq, tkLt, tkGt,
+                      tkLtEq, tkGtEq, tkAnd, tkOr, tkDotDot}:
+    let arg = p.parseArg()
+    return env.evalArg(arg)
+
+  if second.kind == tkDot:
+    let arg = p.parseArg()
+    return env.evalArg(arg)
+
+  let stmt = p.parseStmt()
+  env.evalStmt(stmt)
+  
+
+proc evalBlock*(env: Env, src: string, createChild: bool = true): Value =
   let tokens = tokenize(src)
   let program = parse(tokens)
-  let child = newEnv(env)
-  try: result = child.evalInner(program)
-  except ReturnSignal as r: result = r.value
+  let runEnv = if createChild: newEnv(env) else: env
+  result = runEnv.evalInner(program)
 
 #---------statement evaluation -------------------------------
 
@@ -226,16 +251,10 @@ proc evalStmt*(env: Env, stmt: Stmt): Value =
 
       let body = bodyArg.body
       let captured = paramNames 
+      let capturedBody = body
 
       env.registerCmd(name, proc(env: Env, args: seq[Value]): Value =
-        let child = newEnv(env)
-        for i, p in captured:
-          if i < args.len:
-            child.setVar(p, args[i])
-        try:
-          result = child.evalBlock(body)
-        except ReturnSignal as r:
-          result = r.value)
+        callFn(env, captured, capturedBody, args))
       
       return ""
 
@@ -316,6 +335,17 @@ proc evalStmt*(env: Env, stmt: Stmt): Value =
       if fn == nil:
         raise newException(ValueError, "unknown command: " & stmt.cmd)
       return fn(env, args)
+
+proc evalArgChain(env: Env, arg: Arg): Value =
+  var val: Value
+  if env.hasVar(arg.receiver):
+    val = env.getVar(arg.receiver)
+  else:
+    val = arg.receiver
+
+  for call in arg.calls:
+    val = env.evalChainCall(val, call)
+  val
 
 
 proc eval*(env: Env, program: Program): Value =
