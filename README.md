@@ -102,7 +102,7 @@ The minimal kernel provides a set of essential primitives:
 ```bash
 git clone https://github.com/yourusername/kronyn.git
 cd kronyn
-nim build src/interpreter.nim
+nim c -d:release -o:kronyn kronyn.nim
 ```
 
 ### Running a script
