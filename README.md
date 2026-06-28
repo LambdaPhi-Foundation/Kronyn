@@ -93,7 +93,7 @@ The minimal kernel provides a set of essential primitives:
 
 ## -> Getting Started
 
-*(Note: Since this is a work in progress, add your specific build instructions here)*
+
 
 ### Prerequisites
 - Nim Compiler (`choosenim` or `nim install`)
