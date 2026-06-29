@@ -1,7 +1,6 @@
 define min fn(self, b) {
     if [self < b] {return self}
     if [b < self] {return b}
-
 }
 
 define mint fn(self, a) {
@@ -9,18 +8,17 @@ define mint fn(self, a) {
     if [self < a] {return self}
 }
 
-define factorial proc(x) {
-    if [x == 0] {return 1}
-    if [x != 0] {return [x * [factorial x-1]]}
+define multiplier fn(self, x) {
+    return [self * x]
 }
 
 set x 10
 set y 20
 
 set minim x.min(y)
-set aminim x.mint(y)
-set fact [factorial 4]
+set aminim x.mint(y).multiplier(3)
+
 
 writeln "Minimum is " .. minim
 writeln "Another minimum is " .. aminim
-writeln "factorial of 4 is " .. fact 
+ 

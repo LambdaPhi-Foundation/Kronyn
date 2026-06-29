@@ -1,0 +1,19 @@
+define inc fn(self) {
+    return [x + 1]
+}
+
+set x 0
+goto loop
+
+
+
+@loop {
+    set x [x.inc()]
+    writeln x
+    if [x > 5] {goto done}
+    if [x < 5] {goto loop}
+}
+
+@done {
+    writeln "loop finished"
+}

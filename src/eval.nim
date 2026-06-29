@@ -53,6 +53,7 @@ proc evalArg*(env: Env, arg: Arg): Value
 proc evalSub*(env: Env, src: string): Value
 proc evalBlock*(env: Env, src: string, createChild: bool = true): Value
 proc evalArgChain(env: Env, arg: Arg): Value 
+proc evalBlockBody*(env: Env, src: string): Value 
 
 #------- Return type shit?------------------------------------
 
@@ -82,7 +83,7 @@ proc callFn(env: Env, params: seq[string], body: string, args: seq[Value]): Valu
     if i < args.len:
       child.setVar(p, args[i])
   try:
-    result = child.evalBlock(body, createChild = false)
+    result = child.evalBlockBody(body)
   except ReturnSignal as r:
     result = r.value
 
@@ -181,13 +182,31 @@ proc evalArg*(env: Env, arg: Arg): Value =
 #-----substitute and evaluation stuff ----------------------------
 
 proc evalInner(env: Env, program: Program): Value =
-  for top in program:
+  var localMap: Table[string, int]
+  for i, top in program:
+    if top.kind == tlBlock:
+      localMap[top.label] = i 
+
+  var pc = 0
+  while pc < program.len:
+    let top = program[pc]
     case top.kind
       of tlStmt:
-        result = env.evalStmt(top.stmt)
+        try:
+          result = env.evalStmt(top.stmt)
+          inc pc
+        except GotoSignal as g:
+          if g.label in localMap:
+            pc = localMap[g.label]
+          else:
+            raise
+
+        except ReturnSignal as r:
+          result = r.value
+          return
       of tlBlock:
         raise newException(ValueError,
-          "nested @blocks are not allowed")
+          "Line " & $top.label & ": nested @blocks are not alloweds")
 
 proc evalSub*(env: Env, src: string): Value =
   let tokens = tokenize(src)
@@ -218,6 +237,35 @@ proc evalBlock*(env: Env, src: string, createChild: bool = true): Value =
   let program = parse(tokens)
   let runEnv = if createChild: newEnv(env) else: env
   result = runEnv.evalInner(program)
+
+proc evalBlockBody*(env: Env, src: string): Value =
+  let tokens = tokenize(src)
+  let program = parse(tokens)
+
+  var localMap: Table[string, int]
+  for i, top in program:
+    if top.kind == tlBlock:
+      localMap[top.label] = i
+
+  var pc = 0
+  while pc < program.len:
+    let top = program[pc]
+    try:
+      case top.kind
+        of tlStmt:
+          result = env.evalStmt(top.stmt)
+          inc pc
+        of tlBlock:
+          inc pc
+    except GotoSignal as g:
+      if g.label in localMap:
+        pc = localMap[g.label]
+      else:
+        raise 
+
+    except ReturnSignal as r:
+      result = r.value
+      break
 
 #---------statement evaluation -------------------------------
 
@@ -353,33 +401,39 @@ proc eval*(env: Env, program: Program): Value =
   for i, top in program:
     if top.kind == tlBlock:
       blockMap[top.label] = i
-      
 
   for top in program:
-    if top.kind == tlBlock: continue
-    try:
-      result = env.evalStmt(top.stmt)
-    except GotoSignal as g:
-      var pc = blockMap.getOrDefault(g.label, -1)
-      if pc == -1:
-        raise newException(ValueError, "undefined block: " & g.label)
-      while pc >= 0 and pc < program.len:
-        let top = program[pc]
-        if top.kind != tlBlock:
-          inc pc
-          continue
+    if top.kind == tlStmt:
+      try:
+        result = env.evalStmt(top.stmt)
+      except GotoSignal as g:
+        raise newException(ValueError,
+          "goto outside block: " & g.label)
+
+  #Always go to main
+  if "main" notin blockMap:
+    return result
+
+  var pc = blockMap["main"]
+
+  while pc >= 0 and pc < program.len:
+    let top = program[pc]
+    case top.kind
+      of tlStmt:
+        inc pc
+        continue
+      of tlBlock:
         try:
-          let tokens = tokenize(top.body)
-          let prog = parse(tokens)
-          result = env.evalInner(prog)
+          result = env.evalInner(parse(tokenize(top.body)))
           break
-        except GotoSignal as g2:
-          pc = blockMap.getOrDefault(g2.label, -1)
-          if pc == -1:
-            raise newException(ValueError, "undefined block: " & g2.label)
+        except GotoSignal as g:
+          if g.label notin blockMap:
+            raise newException(ValueError, "undefined block: " & g.label)
+          pc = blockMap[g.label]
         except ReturnSignal as r:
-          return r.value
-      return result
+          result = r.value
+          break
+
 
 #------ some builtin stuff-----------------------------------
 
@@ -395,9 +449,9 @@ proc initKernel*(env: Env) =
 
   env.registerCmd("if", proc(env: Env, arg: seq[Value]): Value =
     if arg[0].truthy():
-      return env.evalBlock(arg[1])
+      return env.evalBlockBody(arg[1])
     elif arg.len > 2:
-      return env.evalBlock(arg[2])
+      return env.evalBlockBody(arg[2])
     "")
 
   # Some string ops cause...You know...everything's a string :)

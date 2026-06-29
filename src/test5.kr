@@ -1,0 +1,20 @@
+@main {
+    writeln "This is in main"
+    goto nested    
+}
+set x 0
+@nested {
+    writeln "This is in nested block"
+    if [x == 1] {goto finish}
+    if [x != 1] {goto another}
+}
+
+@another {
+    writeln "This is the end"
+    set x [x + 1]
+    goto nested
+}
+
+@finish {
+    writeln "Finished"
+}
