@@ -1,16 +1,16 @@
-import token, strutils
+import token
 
-type Lexer* = object
-  src*: string
-  pos*: int
-  line*: int
+type
+  Lexer* = object
+    src*: string
+    pos*: int
+    line*: int
 
 proc newLexer*(src: string): Lexer =
   Lexer(src: src, pos: 0, line: 1)
 
-proc peek(l: Lexer, offsetL: int = 0): char =
-  let i = l.pos + offsetL
-  if i < l.src.len: l.src[i] else: '\0'
+proc peek(l: Lexer): char =
+  if l.pos < l.src.len: l.src[l.pos] else: '\0'
 
 proc advance(l: var Lexer): char =
   result = l.src[l.pos]
@@ -22,7 +22,8 @@ proc skipWhitespace(l: var Lexer) =
     let c = l.peek()
     if c in {' ', '\t', '\r'}: discard l.advance()
     elif c == '#':
-      while l.pos < l.src.len and l.peek() != '\n': discard l.advance()
+      while l.pos < l.src.len and l.peek() != '\n':
+        discard l.advance()
     else: break
 
 proc makeToken(l: Lexer, kind: TokenKind, lexeme: string): Token =
@@ -35,11 +36,11 @@ proc lexString(l: var Lexer): Token =
     let c = l.advance()
     if c == '\\':
       case l.advance()
-        of 'n': s.add('\n')
-        of 't': s.add('\t')
-        of '"': s.add('"')
-        of '\\': s.add('\\')
-        else: s.add('\\')
+      of 'n': s.add('\n')
+      of 't': s.add('\t')
+      of '"': s.add('"')
+      of '\\': s.add('\\')
+      else: s.add('\\')
     else: s.add(c)
   discard l.advance()
   l.makeToken(tkString, s)
@@ -57,16 +58,25 @@ proc lexNested(l: var Lexer, open, close: char, kind: TokenKind): Token =
     else: s.add(c)
   l.makeToken(kind, s.strip())
 
+proc lexDollar(l: var Lexer): Token =
+  discard l.advance()
+  var name = ""
+  while l.pos < l.src.len and
+        (l.peek().isAlphaNumeric() or l.peek() == '_'):
+    name.add(l.advance())
+  l.makeToken(tkDollar, name)
+
 proc lexWord(l: var Lexer): Token =
   var s = ""
-  while l.pos < l.src.len and l.peek() notin {' ', '\t', '\r', '\n',
-                                              '(', ')', ',', 
-                                              '.', '"', '[', ']', 
-                                              '{', '}', '#'}:
+  while l.pos < l.src.len and
+        l.peek() notin {' ', '\t', '\r', '\n',
+                         '(', ')', ',', '.', '"',
+                         '[', ']', '{', '}', '#',
+                         '$', '+', '-', '*', '/',
+                         '!', '=', '<', '>', '&', '|'}:
     s.add(l.advance())
   if s.len == 0:
-    let c = l.advance()
-    return l.makeToken(tkWord, $c)
+    return l.makeToken(tkWord, $l.advance())
   l.makeToken(tkWord, s)
 
 proc nextToken*(l: var Lexer): Token =
@@ -76,83 +86,52 @@ proc nextToken*(l: var Lexer): Token =
 
   let c = l.peek()
   case c
-    of '\n':
+  of '\n':
+    discard l.advance()
+    l.makeToken(tkNewline, "\\n")
+  of '"': l.lexString()
+  of '[': l.lexNested('[', ']', tkSub)
+  of '{': l.lexNested('{', '}', tkBlock)
+  of '$': l.lexDollar()
+  of '.':
+    discard l.advance()
+    if l.peek() == '.':
       discard l.advance()
-      l.makeToken(tkNewline, "\\n")
-    of '"': l.lexString()
-    of '[': l.lexNested('[', ']', tkSub)
-    of '{': l.lexNested('{', '}', tkBlock)
-    of '(': discard l.advance(); l.makeToken(tkLParen, "(")
-    of ')': discard l.advance(); l.makeToken(tkRParen, ")")
-    of ',': discard l.advance(); l.makeToken(tkComma, ",")
-    of '.':
-      discard l.advance()
-      if l.peek() == '.':
-        discard l.advance()
-        l.makeToken(tkDotDot, "..")
-      else:
-        l.makeToken(tkDot, ".")
-    of '+':
-      discard l.advance()
-      l.makeToken(tkPLus, "+")
-    of '-':
-      discard l.advance()
-      l.makeToken(tkMinus, "-")
-    of '*':
-      discard l.advance()
-      l.makeToken(tkStar, "*")
-    of '/':
-      discard l.advance()
-      l.makeToken(tkSlash, "/")
-    of '!':
-      discard l.advance()
-      if l.peek() == '=':
-        discard l.advance()
-        l.makeToken(tkBangEq, "!=")
-      else:
-        l.makeToken(tkBang, "!")
-    of '=':
-      discard l.advance()
-      if l.peek() == '=':
-        discard l.advance()
-        l.makeToken(tkEqEq, "=")
-      else:
-        l.makeToken(tkWord, "=")
-    of '<':
-      discard l.advance()
-      if l.peek() == '=':
-        l.makeToken(tkLtEq, "<=")
-      else:
-        l.makeToken(tkLt, ">")
-    of '>':
-      discard l.advance()
-      if l.peek() == '=':
-        discard l.advance()
-        l.makeToken(tkGtEq, ">=")
-      else:
-        l.makeToken(tkGt, ">")
-    of '&':
-      discard l.advance()
-      if l.peek() == '&':
-        discard l.advance()
-        l.makeToken(tkAnd, "&&")
-      else:
-        l.makeToken(tkWord, "&")
-    of '|':
-      discard l.advance()
-      if l.peek() == '|':
-        discard l.advance()
-        l.makeToken(tkOr, "||")
-      else:
-        l.makeToken(tkWord, "|")
-    of '@':
-      discard l.advance()
-      l.makeToken(tkAt, "@")
-    of ':':
-      discard l.advance()
-      l.makeToken(tkColon, ":")
+      l.makeToken(tkDotDot, "..")
     else:
-      l.lexWord()
+      l.makeToken(tkDot, ".")
+  of '(': discard l.advance(); l.makeToken(tkLParen, "(")
+  of ')': discard l.advance(); l.makeToken(tkRParen, ")")
+  of ',': discard l.advance(); l.makeToken(tkComma, ",")
+  of '+': discard l.advance(); l.makeToken(tkPlus, "+")
+  of '-': discard l.advance(); l.makeToken(tkMinus, "-")
+  of '*': discard l.advance(); l.makeToken(tkStar, "*")
+  of '/': discard l.advance(); l.makeToken(tkSlash, "/")
+  of '!':
+    discard l.advance()
+    if l.peek() == '=': discard l.advance(); l.makeToken(tkBangEq, "!=")
+    else: l.makeToken(tkBang, "!")
+  of '=':
+    discard l.advance()
+    if l.peek() == '=': discard l.advance(); l.makeToken(tkEqEq, "==")
+    else: l.makeToken(tkWord, "=")
+  of '<':
+    discard l.advance()
+    if l.peek() == '=': discard l.advance(); l.makeToken(tkLtEq, "<=")
+    else: l.makeToken(tkLt, "<")
+  of '>':
+    discard l.advance()
+    if l.peek() == '=': discard l.advance(); l.makeToken(tkGtEq, ">=")
+    else: l.makeToken(tkGt, ">")
+  of '&':
+    discard l.advance()
+    if l.peek() == '&': discard l.advance(); l.makeToken(tkAnd, "&&")
+    else: l.makeToken(tkWord, "&")
+  of '|':
+    discard l.advance()
+    if l.peek() == '|': discard l.advance(); l.makeToken(tkOr, "||")
+    else: l.makeToken(tkWord, "|")
+  else: l.lexWord()
 
 proc tokenize*(src: string): seq[Token] =
   var l = newLexer(src)
@@ -160,4 +139,7 @@ proc tokenize*(src: string): seq[Token] =
     let t = l.nextToken()
     result.add(t)
     if t.kind == tkEof: break
+
+  
+    
 
