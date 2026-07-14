@@ -83,66 +83,18 @@ proc evalChainCall*(env: Env, receiver: Value, call: ChainCall): Value =
 
   fn(env, args)
 
-proc evalFnBody*(env: Env, src: string): Value =
-  let tokens = tokenize(src)
-  let program = parse(tokens)
-  try:
-    result = env.evalInner(program)
-  except ReturnSignal as r:
-    result = r.value  
-  
+
 proc callFn(env: Env, params: seq[string], body: string, args: seq[Value]): Value =
   let r = env.root()
   let child = newEnv(r)
+  child.returning = false
+  child.retVal = ""
   for i, p in params:
     if i < args.len:
       child.setVar(p, args[i])
   result = child.evalBody(body)
   if r.returning:
-    result = r.retVal
-    r.returning = false
-    r.retVal = ""
-
-
-proc substituteVars*(env: Env, s: string): Value =
-  var result = ""
-  var i = 0
-
-  while i < s.len:
-    let c = s[i]
-
-    if c == '$' and i + 1 < s.len:
-      inc i
-
-      if s[i] == '{':
-        inc i 
-        var name = ""
-        while i < s.len and s[i] != '}':
-          name.add(s[i])
-          inc i
-
-        if i < s.len and s[i] == '}':
-          inc i
-        else:
-          result.add("${" & name)
-        result.add(env.getVar(name))
-
-      else:
-        var name = ""
-        while i < s.len and s[i] in {'a'..'z', 'A'..'Z', '0'..'9', '_'}:
-          name.add(s[i])
-          inc i
-
-        if name.len > 0:
-          result.add(env.getVar(name))
-        else:
-          result.add('$')
-
-    else:
-      result.add(c)
-      inc i
-
-  result
+    result = child.retVal
 
 proc evalArg*(env: Env, arg: Arg): Value =
   case arg.kind
@@ -153,17 +105,7 @@ proc evalArg*(env: Env, arg: Arg): Value =
     of argBlock: arg.body
 
     of argChain:
-      var val: Value
-      if arg.receiver.len > 0 and arg.receiver[0] == '$':
-        val = env.getVar(arg.receiver[1..^1])
-      elif srg.receiver.len > 0:
-        if env.hasVar(arg.receiver):
-          val = env.getVar(arg.receiver)
-        else:
-          val = arg.receiver
-      for call in arg.calls:
-        val = env.evalChainCall(val, call)
-      val
+      env.evalArgChain(arg)
 
     of argInfix:
       let l = env.evalArg(arg.left)
@@ -176,15 +118,24 @@ proc evalArg*(env: Env, arg: Arg): Value =
         of "*": $(parseInt(l) * parseInt(r))
         of "/": $(parseInt(l) div parseInt(r))
         of "..": l & r
-        of "==": if l == r: "true" else: "false"
-        of "!=": if l != r: "true" else: "false"
-        of "<": if parseInt(l) < parseInt(r): "true" else: "false"
-        of ">": if parseInt(l) > parseInt(r): "true" else: "false"
-        of "<=": if parseInt(l) <= parseInt(r): "true" else: "false"
-        of ">=": if parseInt(l) >= parseInt(r): "true" else: "false"
-        of "&&": if l.truthy() and r.truthy(): "true" else: "false"
-        of "||": if l.truthy() or r.truthy(): "true" else: "false"
-        of "!": if r.truthy(): "false" else: "true"
+        of "==":
+          if l == r: "true" else: "false"
+        of "!=":
+          if l != r: "true" else: "false"
+        of "<":
+          if parseInt(l) < parseInt(r): "true" else: "false"
+        of ">":
+          if parseInt(l) > parseInt(r): "true" else: "false"
+        of "<=":
+          if parseInt(l) <= parseInt(r): "true" else: "false"
+        of ">=":
+          if parseInt(l) >= parseInt(r): "true" else: "false"
+        of "&&":
+          if l.truthy() and r.truthy(): "true" else: "false"
+        of "||":
+          if l.truthy() or r.truthy(): "true" else: "false"
+        of "!":
+          if r.truthy(): "false" else: "true"
         else: ""
 
 #-----substitute and evaluation stuff ----------------------------
@@ -213,85 +164,26 @@ proc evalSub*(env: Env, src: string): Value =
   env.evalStmt(stmt)
 
 proc evalBody*(env: Env, src: string): Value =
-  let tokens = tokenize(src)
+  echo "evalBody src=[", src, "]"
+  let tokens  = tokenize(src)
   let program = parse(tokens)
   env.eval(program)
-  
-proc evalInner(env: Env, program: Program): Value =
-  var localMap: Table[string, int]
-  for i, top in program:
-    if top.kind == tlBlock:
-      localMap[top.label] = i 
 
-  var pc = 0
-  while pc < program.len:
-    let top = program[pc]
-    case top.kind
-      of tlStmt:
-        try:
-          result = env.evalStmt(top.stmt)
-          inc pc
-        except GotoSignal as g:
-          if g.label in localMap:
-            pc = localMap[g.label]
-          else:
-            raise
-
-        except ReturnSignal as r:
-          result = r.value
-          return
-      of tlBlock:
-        raise newException(ValueError,
-          "Line " & $top.label & ": nested @blocks are not alloweds")
-  
-
-proc evalBlock*(env: Env, src: string, createChild: bool = true): Value =
-  let tokens = tokenize(src)
-  let program = parse(tokens)
-  let runEnv = if createChild: newEnv(env) else: env
-  result = runEnv.evalInner(program)
-  
-proc evalBlockBody*(env: Env, src: string): Value =
-  let tokens = tokenize(src)
-  let program = parse(tokens)
-
-  var localMap: Table[string, int]
-  for i, top in program:
-    if top.kind == tlBlock:
-      localMap[top.label] = i
-
-  var pc = 0
-  while pc < program.len:
-    let top = program[pc]
-    try:
-      case top.kind
-        of tlStmt:
-          result = env.evalStmt(top.stmt)
-          inc pc
-        of tlBlock:
-          inc pc
-    except GotoSignal as g:
-      if g.label in localMap:
-        pc = localMap[g.label]
-      else:
-        raise 
-
-    except ReturnSignal as r:
-      result = r.value
-      break
 
 #---------statement evaluation -------------------------------
 
 
 proc evalStmt*(env: Env, stmt: Stmt): Value =
+  echo "evalStmt cmd=[", stmt.cmd, "]"
   let r = env.root()
   case stmt.cmd
   # The sacred intents MORRIS declares: SET, RETURN, EVOLVE, DEFINE, and also, new ones like SYSCALL and IMPORT
     of "return":
+      echo "RETURN fired, env.vars=", env.vars
       let val = if stmt.args.len > 0: env.evalArg(stmt.args[0]) else: ""
-      r.returning = true
-      r.retVal = val
-      val
+      env.returning = true
+      env.retVal = val
+      return val
 
     of "set":
       let val = env.evalArg(stmt.args[1])
@@ -303,6 +195,15 @@ proc evalStmt*(env: Env, stmt: Stmt): Value =
       result = env.evalSub(code)
 
     of "define":
+      echo "define name=", stmt.args[0].word, " args=", stmt.args.len
+      for i, a in stmt.args:
+        echo "  arg", i, ": kind=", a.kind, case a.kind
+        of argWord: " word=" & a.word
+        of argVar: " name=" & a.name
+        of argString: " str=" & a.str
+        of argBlock: " body=<block len=" & $a.body.len & ">"
+        of argChain: " receiver=" & a.receiver & " calls=" & $a.calls.len
+        else: ""
       let name = stmt.args[0].word
       let defArg = stmt.args[1]
       let bodyArg = stmt.args[2]
@@ -312,6 +213,7 @@ proc evalStmt*(env: Env, stmt: Stmt): Value =
         for a in defArg.calls[0].args:
           case a.kind
           of argWord: params.add(a.word)
+          
           of argVar: params.add(a.name)
           else: discard
 
@@ -319,7 +221,7 @@ proc evalStmt*(env: Env, stmt: Stmt): Value =
       let captured = params 
       r.registerCmd(name, proc(env: Env, args: seq[Value]): Value =
                     callFn(env, captured, body, args))
-      ""
+      return ""
 
 
     of "syscall":
@@ -397,12 +299,7 @@ proc evalStmt*(env: Env, stmt: Stmt): Value =
       return fn(env, args)
 
 proc evalArgChain(env: Env, arg: Arg): Value =
-  var val: Value
-  if arg.receiver.len > 0 and arg.receiver[0] == '$':
-    val = env.getVar(arg.receiver[1..^1])
-  else:
-    val = arg.receiver
-
+  var val = env.evalArg(arg.receiver)
   for call in arg.calls:
     val = env.evalChainCall(val, call)
   val
@@ -411,7 +308,8 @@ proc evalArgChain(env: Env, arg: Arg): Value =
 proc eval*(env: Env, program: Program): Value =
   for stmt in program:
     result = env.evalStmt(stmt)
-    if env.root().returning: break
+    echo "after evalStmt, env.returning=", env.returning, " env.vars=", env.vars
+    if env.returning: break
 
 
 #------ some builtin stuff-----------------------------------
@@ -441,7 +339,7 @@ proc initKernel*(env: Env) =
     while env.evalSub(cond).truthy():
       result = env.evalBody(body)
       if env.root().returning: break
-      "")
+      return "")
                               
 
   # Some string ops cause...You know...everything's a string :)

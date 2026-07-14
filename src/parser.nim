@@ -86,7 +86,9 @@ proc parseDotChain(p: var Parser, receiver: string): Arg =
     calls.add(p.parseChainCall())
   chainArg(receiver, calls)
 
-proc parsePrimary*(p: car Parser): Arg =
+proc parsePrimary*(p: var Parser): Arg =
+  echo "parsePrimary token: ", p.peek()
+  
   let t = p.peek()
   case t.kind
   of tkBang:
@@ -100,7 +102,7 @@ proc parsePrimary*(p: car Parser): Arg =
       while p.peek().kind == tkDot:
         discard p.advance()
         calls.add(p.parseChainCall())
-      return chainArg(t.lexeme, calls)
+      return chainArg(strArg(t.lexeme), calls)
     return strArg(t.lexeme)
 
   of tkSub:
@@ -110,10 +112,11 @@ proc parsePrimary*(p: car Parser): Arg =
       while p.peek().kind == tkDot:
         discard p.advance()
         calls.add(p.parseChainCall())
-      return chainArg(t.lexeme, calls)
+      return chainArg(subArg(t.lexeme), calls)
     return subArg(t.lexeme)
 
   of tkBlock:
+    echo "HIT TKBLOCK"
     discard p.advance()
     return blockArg(t.lexeme)
 
@@ -124,12 +127,28 @@ proc parsePrimary*(p: car Parser): Arg =
       while p.peek().kind == tkDot:
         discard p.advance()
         calls.add(p.parseChainCall())
-      return chainArg("$" & t.lexeme, calls)
+      return chainArg(varArg(t.lexeme), calls)
     return varArg(t.lexeme)
 
   of tkWord:
     discard p.advance()
-    return p.parseDotChain(t.lexeme)
+    if p.peek().kind == tkLParen:
+      discard p.advance()
+      let args = p.parseChainArgs()
+      discard p.advance()
+      var calls: seq[ChainCall]
+      calls.add(ChainCall(name: t.lexeme, args: args))
+      while p.peek().kind == tkDot:
+        discard p.advance()
+        calls.add(p.parseChainCall())
+      return chainArg(wordArg(""), calls)
+    if p.peek().kind == tkDot:
+      var calls: seq[ChainCall]
+      while p.peek().kind == tkDot:
+        discard p.advance()
+        calls.add(p.parseChainCall())
+      return chainArg(wordArg(t.lexeme), calls)
+    return wordArg(t.lexeme)
 
   else:
     discard p.advance()
@@ -146,13 +165,15 @@ proc parseArg*(p: var Parser): Arg =
 proc parseStmt*(p: var Parser): Stmt =
   let cmd = p.advance().lexeme
   var args: seq[Arg]
+  echo "parseStmt cmd=", cmd
   while p.peek().kind notin {tkNewline, tkEof}:
+    echo "  next token: ", p.peek()
     args.add(p.parseArg())
   Stmt(cmd: cmd, args: args)
 
 #------ And finally ------------------------------
 proc parse*(tokens: seq[Token]): Program =
-  vaar p = newParser(tokens)
+  var p = newParser(tokens)
   while not p.isAtEnd():
     p.skipNewlines()
     if p.isAtEnd(): break
