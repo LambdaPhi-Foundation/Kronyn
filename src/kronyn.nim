@@ -1,4 +1,4 @@
-import lexer, parser, ast, eval, os
+import lexer, parser, eval, os
 
 when isMainModule:
   if paramCount() < 1:

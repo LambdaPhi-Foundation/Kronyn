@@ -1,4 +1,4 @@
-import token, ast, lexer, parser, tables, strutils, os, sequtils
+import token, ast, lexer, parser, tables, strutils, os
 
 #---- Value ---------------------------------------------
 type Value* = string

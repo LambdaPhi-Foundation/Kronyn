@@ -1,0 +1,11 @@
+define mult fn(self) {
+    writeln self
+    self.mult()
+}
+
+
+
+@main {
+    set pro [5.mult()]
+    writeln pro
+}

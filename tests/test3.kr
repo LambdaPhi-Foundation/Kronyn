@@ -1,0 +1,27 @@
+writeln "hello".toUpper()
+writeln "  hello  ".trim().toUpper()
+writeln "hello".len()
+writeln "hello".contains("ell")
+writeln "hello world".replace("world", "kronyn")
+
+writeln "A".ascii()
+writeln 65.char()
+writeln "hello".index(0)
+
+writeln [10 + 5]
+writeln [10 - 3]
+writeln [10 * 3]
+writeln [10 / 2]
+writeln [10 == 10]
+writeln [10 != 5]
+
+set x 10
+set y [$x + 5]
+writeln $y
+
+set a "hello"
+set b " world"
+writeln [$a .. $b]
+
+set t 5
+writeln [$x * [$x - 1]]

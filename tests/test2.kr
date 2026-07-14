@@ -1,0 +1,26 @@
+define min fn(self, b) {
+    if [$self < $b] {return $self} {return $b} 
+}
+
+define mint fn(self, a) {
+    if [$self > $a] {return $a} {return $self}
+}
+
+define multiplier fn(self, x) {
+    return [$self * $x]
+}
+
+define printer proc(a, b) {
+    if [$b == 0] {writeln "done"} {
+    writeln $a
+    printer $a [$b - 1]}
+}
+
+set x 10
+set y 20
+set greet "hello"
+
+set minimum [$x.min($y)]
+printer "hello" 3
+writeln "Minimum of 10 and 20 is " .. $minimum
+

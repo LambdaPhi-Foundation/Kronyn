@@ -1,0 +1,10 @@
+define printer proc(x, n) {
+       writeln [$n .. " is n"]
+       if [$n == 0] {return ""}
+       writeln $x
+       printer $x [$n - 1]
+}
+
+@main {
+      printer "hello" 3
+}

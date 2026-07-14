@@ -1,5 +1,3 @@
-import macros
-
 type
   ArgKind* = enum
     argWord,            # bare word literal
