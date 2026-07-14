@@ -9,24 +9,17 @@ when isMainModule:
 
   let stdlibPath = getAppDir() / "stdlib.kr"
   if fileExists(stdlibPath):
-    let stdSrc = readFile(stdlibPath)
-    let stdToks = tokenize(stdSrc)
-    let stdProg = parse(stdToks)
-    discard interp.eval(stdProg)
+    let src = readFile(stdlibPath)
+    discard interp.eval(parse(tokenize(src)))
 
   let path = paramStr(1)
   if not fileExists(path):
-    echo "error: file not found: " & path
+    echo "error: file for found: " & path
     quit(1)
 
-  let src = readFile(path)
-  let tokens = tokenize(src)
-  let program = parse(tokens)
-
   try:
-    discard interp.eval(program)
+    let src = readFile(path)
+    discard interp.eval(parse(tokenize(src)))
   except ValueError as e:
     echo "error: " & e.msg
     quit(1)
-  
-

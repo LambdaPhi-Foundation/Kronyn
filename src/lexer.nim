@@ -1,4 +1,4 @@
-import token
+import token, strutils
 
 type
   Lexer* = object

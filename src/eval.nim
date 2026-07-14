@@ -57,7 +57,8 @@ proc registerCmd*(env: Env, name: string, fn: CommandFn) =
 
 proc eval*(env: Env, program: Program): Value
 proc evalStmt*(env: Env, stmt: Stmt): Value
-proc evalArg*(env: Env, arg: Arg): Value 
+proc evalArg*(env: Env, arg: Arg): Value
+proc evalArgChain(env: Env, arg: Arg): Value 
 proc evalSub*(env: Env, src: string): Value
 proc evalBody*(env: Env, src: string): Value
 proc callFn*(env: Env, params: seq[string], body: string, args: seq[Value]): Value
@@ -164,7 +165,6 @@ proc evalSub*(env: Env, src: string): Value =
   env.evalStmt(stmt)
 
 proc evalBody*(env: Env, src: string): Value =
-  echo "evalBody src=[", src, "]"
   let tokens  = tokenize(src)
   let program = parse(tokens)
   env.eval(program)
@@ -174,12 +174,10 @@ proc evalBody*(env: Env, src: string): Value =
 
 
 proc evalStmt*(env: Env, stmt: Stmt): Value =
-  echo "evalStmt cmd=[", stmt.cmd, "]"
   let r = env.root()
   case stmt.cmd
   # The sacred intents MORRIS declares: SET, RETURN, EVOLVE, DEFINE, and also, new ones like SYSCALL and IMPORT
     of "return":
-      echo "RETURN fired, env.vars=", env.vars
       let val = if stmt.args.len > 0: env.evalArg(stmt.args[0]) else: ""
       env.returning = true
       env.retVal = val
@@ -195,15 +193,6 @@ proc evalStmt*(env: Env, stmt: Stmt): Value =
       result = env.evalSub(code)
 
     of "define":
-      echo "define name=", stmt.args[0].word, " args=", stmt.args.len
-      for i, a in stmt.args:
-        echo "  arg", i, ": kind=", a.kind, case a.kind
-        of argWord: " word=" & a.word
-        of argVar: " name=" & a.name
-        of argString: " str=" & a.str
-        of argBlock: " body=<block len=" & $a.body.len & ">"
-        of argChain: " receiver=" & a.receiver & " calls=" & $a.calls.len
-        else: ""
       let name = stmt.args[0].word
       let defArg = stmt.args[1]
       let bodyArg = stmt.args[2]
@@ -229,7 +218,7 @@ proc evalStmt*(env: Env, stmt: Stmt): Value =
       if callArg.kind != argChain:
         raise newException(ValueError, "syscall expects namespace.method")
 
-      let ns = callArg.receiver
+      let ns = env.evalArg(callArg.receiver)
       let meth = callArg.calls[0].name
 
       var args: seq[Value]
@@ -308,7 +297,6 @@ proc evalArgChain(env: Env, arg: Arg): Value =
 proc eval*(env: Env, program: Program): Value =
   for stmt in program:
     result = env.evalStmt(stmt)
-    echo "after evalStmt, env.returning=", env.returning, " env.vars=", env.vars
     if env.returning: break
 
 

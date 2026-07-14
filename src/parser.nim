@@ -80,14 +80,13 @@ proc parseDotChain(p: var Parser, receiver: string): Arg =
     while p.peek().kind == tkDot:
       discard p.advance()
       calls.add(p.parseChainCall())
-    return chainArg("", calls)
+    return chainArg(wordArg(""), calls)
   while p.peek().kind == tkDot:
     discard p.advance()
     calls.add(p.parseChainCall())
-  chainArg(receiver, calls)
+  chainArg(wordArg(receiver), calls)
 
 proc parsePrimary*(p: var Parser): Arg =
-  echo "parsePrimary token: ", p.peek()
   
   let t = p.peek()
   case t.kind
@@ -116,7 +115,6 @@ proc parsePrimary*(p: var Parser): Arg =
     return subArg(t.lexeme)
 
   of tkBlock:
-    echo "HIT TKBLOCK"
     discard p.advance()
     return blockArg(t.lexeme)
 
@@ -165,9 +163,7 @@ proc parseArg*(p: var Parser): Arg =
 proc parseStmt*(p: var Parser): Stmt =
   let cmd = p.advance().lexeme
   var args: seq[Arg]
-  echo "parseStmt cmd=", cmd
   while p.peek().kind notin {tkNewline, tkEof}:
-    echo "  next token: ", p.peek()
     args.add(p.parseArg())
   Stmt(cmd: cmd, args: args)
 
