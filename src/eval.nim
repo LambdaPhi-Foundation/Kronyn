@@ -4,7 +4,7 @@ import token, ast, lexer, parser, tables, strutils, os
 type Value* = string
 
 proc truthy*(v: Value): bool =
-  v != "" and v != "0" and v != "false"
+  v != "" and v != "0" 
 
 proc isInt*(v: Value): bool =
   try: discard parseInt(v); true
@@ -21,13 +21,16 @@ type
     parent*: Env
     returning*: bool
     retVal*: Value
+    breaking*: bool
 
 proc newEnv*(parent: Env = nil): Env =
   Env(vars: initTable[string, Value](),
   cmds: initTable[string, CommandFn](),
+  
   parent: parent,
   returning: false,
-  retVal: "")
+  retVal: "",
+  breaking: false)
 
 proc root*(env: Env): Env =
   if env.parent == nil: env else: env.parent.root()
@@ -120,23 +123,23 @@ proc evalArg*(env: Env, arg: Arg): Value =
         of "/": $(parseInt(l) div parseInt(r))
         of "..": l & r
         of "==":
-          if l == r: "true" else: "false"
+          if l == r: "1" else: "0"
         of "!=":
-          if l != r: "true" else: "false"
+          if l != r: "1" else: "0"
         of "<":
-          if parseInt(l) < parseInt(r): "true" else: "false"
+          if parseInt(l) < parseInt(r): "1" else: "0"
         of ">":
-          if parseInt(l) > parseInt(r): "true" else: "false"
+          if parseInt(l) > parseInt(r): "1" else: "0"
         of "<=":
-          if parseInt(l) <= parseInt(r): "true" else: "false"
+          if parseInt(l) <= parseInt(r): "1" else: "0"
         of ">=":
-          if parseInt(l) >= parseInt(r): "true" else: "false"
+          if parseInt(l) >= parseInt(r): "1" else: "0"
         of "&&":
-          if l.truthy() and r.truthy(): "true" else: "false"
+          if l.truthy() and r.truthy(): "1" else: "0"
         of "||":
-          if l.truthy() or r.truthy(): "true" else: "false"
+          if l.truthy() or r.truthy(): "1" else: "0"
         of "!":
-          if r.truthy(): "false" else: "true"
+          if r.truthy(): "0" else: "1"
         else: ""
 
 #-----substitute and evaluation stuff ----------------------------
@@ -212,6 +215,9 @@ proc evalStmt*(env: Env, stmt: Stmt): Value =
                     callFn(env, captured, body, args))
       return ""
 
+    of "break":
+      env.breaking = true
+      return ""
 
     of "syscall":
       let callArg = stmt.args[0]
@@ -298,6 +304,7 @@ proc eval*(env: Env, program: Program): Value =
   for stmt in program:
     result = env.evalStmt(stmt)
     if env.returning: break
+    if env.breaking: break
 
 
 #------ some builtin stuff-----------------------------------
@@ -315,18 +322,30 @@ proc initKernel*(env: Env) =
   env.registerCmd("if", proc(env: Env, arg: seq[Value]): Value =
     if arg[0].truthy():
       return env.evalBody(arg[1])
-    elif arg.len > 2:
-      return env.evalBody(arg[2]))
+    var i = 2
+    while i < arg.len:
+      if arg[i] == "elif":
+        if arg[i+1].truthy():
+          return env.evalBody(arg[i+2])
+        i += 3
+      elif arg[i] == "else":
+        return env.evalBody(arg[i+1])
+      else:
+        inc i
+    "") 
 
   env.registerCmd("readln", proc(env: Env, args: seq[Value]): Value =
                                 readLine(stdin))
 
   env.registerCmd("iter", proc(env: Env, args: seq[Value]): Value =
-    let cond = args[0]
-    let body = args[1]
+    echo "iter args count=", args.len
+    for i, a in args:
+      echo "  args", i, "=[", a, "]"
+    let body = args[0]
+    let cond = args[1]
     while env.evalSub(cond).truthy():
       result = env.evalBody(body)
-      if env.root().returning: break
+      if env.returning: break
       return "")
                               
 
@@ -380,6 +399,29 @@ proc initKernel*(env: Env) =
 
   env.registerCmd("concat", proc(env: Env, args: seq[Value]): Value =
     args[0] & args[1])
+
+  env.registerCmd("loop", proc(env: Env, args: seq[Value]): Value =
+    let body = args[0]
+    while true:
+      result = env.evalBody(body)
+      if env.breaking:
+        env.breaking = false
+        break
+      if env.returning: break
+    return "")
+
+  env.registerCmd("while", proc(env: Env, args: seq[Value]): Value =
+    let cond = args[0]
+    let body = args[1]
+    while env.evalSub(cond).truthy():
+      result = env.evalBody(body)
+      if env.breaking:
+        env.breaking = false
+        break
+      if env.returning: break
+    return "")
+  env.registerCmd("mod", proc(env: Env, args: seq[Value]): Value =
+    $(parseInt(args[0]) mod parseInt(args[1])))
 
 #------- entry -------------------------------------------
 
