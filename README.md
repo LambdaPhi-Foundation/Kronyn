@@ -1,8 +1,5 @@
-This is a comprehensive `README.md` designed to make your project look professional, clear, and appealing to other developers. It organizes your technical specifications into a logical flow: **Philosophy $\rightarrow$ Syntax $\rightarrow$ Examples $\rightarrow$ Technicals**.
 
-***
-
-# 🌌 Kronyn
+# [*] Kronyn
 
 **Kronyn** is an extensible, interpreted programming language that blends the "everything is a string" philosophy of [Tcl](https://www.tcl.tk/) with the structured "Intent" patterns of the [MORRIS standards](https://github.com/Stanislaw3737/MORRIS-shell). 
 
@@ -10,7 +7,7 @@ Written in **Nim**, Kronyn is designed for flexibility and extensibility, provid
 
 ---
 
-## 📖 Philosophy
+## [|] Philosophy
 In Kronyn, **everything is a string**. However, unlike Tcl, Kronyn introduces a level of rigidity to prevent the "string soup" problem, utilizing three distinct ways to represent strings and a powerful dot-chaining system for operations.
 
 ### String Representations
@@ -22,7 +19,7 @@ In Kronyn, **everything is a string**. However, unlike Tcl, Kronyn introduces a 
 
 ---
 
-## 🛠 Language Features
+## [+] Language Features
 
 ### Intents & Functions
 Kronyn distinguishes between general commands (**Intents**) and object-like methods (**Dot Functions**).
@@ -48,9 +45,9 @@ define <name> fn(<param1>, <param2>) {
 
 ---
 
-## 🚀 Examples
+## [:] Examples
 
-### 🔢 Fibonacci Sequence
+### [:.] Fibonacci Sequence
 Demonstrating recursion and dot-chaining.
 ```kronyn
 define fib fn(self) {
@@ -65,7 +62,7 @@ writeln 5.fib()
 writeln 10.fib()
 ```
 
-### 🔄 String Reversal
+### [:.] String Reversal
 Demonstrating loops, variable assignment, and string indexing.
 ```kronyn
 define reverse fn(self) {
@@ -83,7 +80,7 @@ writeln "hello".reverse()
 writeln "Kronyn".reverse()
 ```
 
-### 📂 I/O & System Calls
+### [:.] I/O & System Calls
 ```kronyn
 # User Input
 syscall io.output "enter your name: "
@@ -98,17 +95,17 @@ writeln $contents
 
 ---
 
-## 📦 Standard Library (Built-ins)
+## [[]] Standard Library (Built-ins)
 
 All core functions are defined in `stdlib.kr` and are imported automatically.
 
-### ⚙️ Control Flow
+### [-] Control Flow
 - `if` / `elif` / `else`: Conditional branching.
 - `while`: Executes a block while a condition is truthy.
 - `loop`: An infinite loop (use `break` to exit).
 - `iter`: Iteration logic.
 
-### 🧵 String Manipulation
+### [""] String Manipulation
 - `.len()`: Returns string length.
 - `.toUpper()` / `.toLower()`: Changes case.
 - `.trim()`: Removes whitespace.
@@ -119,7 +116,7 @@ All core functions are defined in `stdlib.kr` and are imported automatically.
 - `.split(delim)`: Splits string into a space-joined list.
 - `concat` / `..`: Joins two strings.
 
-### 🔢 Data Conversion & Math
+### [&] Data Conversion & Math
 - `int`: Converts string to integer.
 - `str`: Ensures value is a string.
 - `ascii`: Returns ASCII value of the first character.
@@ -128,7 +125,7 @@ All core functions are defined in `stdlib.kr` and are imported automatically.
 
 ---
 
-## 🏗 Technical Architecture
+## [=]Technical Architecture
 
 - **Implementation Language:** [Nim](https://nim-lang.org/)
 - **Interpreter Type:** Currently a **Treewalk Interpreter**.
@@ -137,7 +134,7 @@ All core functions are defined in `stdlib.kr` and are imported automatically.
     - [ ] Expansion of the `stdlib.kr` library.
     - [ ] Enhanced error handling and debugging tools.
 
-## 🤝 Credits
+## [~] Credits
 Kronyn is heavily inspired by:
 - **Tcl**: For the "everything is a string" philosophy.
 - **MORRIS Standards**: For the implementation of "Intents".
