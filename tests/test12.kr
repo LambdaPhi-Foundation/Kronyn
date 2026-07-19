@@ -1,0 +1,5 @@
+# File operations
+
+syscall fs.write "text.txt" "Hello from Kronyn"
+set contents [syscall fs.read "text.txt"]
+writeln $contents

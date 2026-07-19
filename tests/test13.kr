@@ -1,0 +1,6 @@
+define pow fn(self, exp) {
+       if [$exp == 0] {return 1} else {return [$self * $self.pow([$exp - 1])]}
+}
+
+writeln 2.pow(10)
+writeln 3.pow(5)

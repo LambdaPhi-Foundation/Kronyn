@@ -1,0 +1,4 @@
+# User inputs
+syscall io.output "Enter your name: "
+set name [syscall io.input]
+writeln ["Hello " .. $name]

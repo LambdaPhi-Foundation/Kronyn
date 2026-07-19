@@ -1,0 +1,16 @@
+define reverse fn(self) {
+       set result ""
+       set i [$self.len() - 1]
+       loop {
+       	    if [$i < 0] {break}
+	    set result [$result .. $self.index($i)]
+	    set i [$i - 1]
+	}
+	return $result
+}
+
+define isPalindrome fn(self) {
+       if [$self.reverse() == $self] {return "true"} else {return "false"}
+}
+
+writeln "madame".isPalindrome()
