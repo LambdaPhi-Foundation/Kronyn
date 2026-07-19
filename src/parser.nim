@@ -53,6 +53,7 @@ proc parseArg*(p: var Parser): Arg
 proc parsePrimary*(p:var Parser): Arg
 
 proc parseChainCall*(p: var Parser): ChainCall =
+  let line = p.peek().line
   let name = p.advance().lexeme
   var args: seq[Arg]
   if p.peek().kind == tkLParen:
@@ -62,6 +63,7 @@ proc parseChainCall*(p: var Parser): ChainCall =
   ChainCall(name: name, args: args)
 
 proc parseChainArgs*(p: var Parser): seq[Arg] =
+  let line = p.peek().line
   if p.peek().kind == tkRParen: return @[]
   result.add(p.parseArg())
   while p.peek().kind == tkComma:
@@ -69,6 +71,7 @@ proc parseChainArgs*(p: var Parser): seq[Arg] =
     result.add(p.parseArg())
 
 proc parseDotChain(p: var Parser, receiver: string): Arg =
+  let line = p.peek().line
   if p.peek().kind notin {tkDot, tkLParen}:
     return wordArg(receiver)
   var calls: seq[ChainCall]
@@ -87,7 +90,7 @@ proc parseDotChain(p: var Parser, receiver: string): Arg =
   chainArg(wordArg(receiver), calls)
 
 proc parsePrimary*(p: var Parser): Arg =
-  
+  let line = p.peek().line
   let t = p.peek()
   case t.kind
   of tkBang:
@@ -116,6 +119,12 @@ proc parsePrimary*(p: var Parser): Arg =
 
   of tkBlock:
     discard p.advance()
+    if p.peek().kind == tkDot:
+      var calls: seq[ChainCall]
+      while p.peek().kind == tkDot:
+        discard p.advance()
+        calls.add(p.parseChainCall())
+      return chainArg(blockArg(t.lexeme), calls)
     return blockArg(t.lexeme)
 
   of tkDollar:
@@ -153,6 +162,7 @@ proc parsePrimary*(p: var Parser): Arg =
     return wordArg(t.lexeme)
 
 proc parseArg*(p: var Parser): Arg =
+  let line = p.peek().line
   let left = p.parsePrimary()
   if isOperator(p.peek()):
     let op = opStr(p.advance())
@@ -161,11 +171,12 @@ proc parseArg*(p: var Parser): Arg =
   left
 
 proc parseStmt*(p: var Parser): Stmt =
+  let line = p.peek().line
   let cmd = p.advance().lexeme
   var args: seq[Arg]
   while p.peek().kind notin {tkNewline, tkEof}:
     args.add(p.parseArg())
-  Stmt(cmd: cmd, args: args)
+  Stmt(cmd: cmd, args: args, line: line)
 
 #------ And finally ------------------------------
 proc parse*(tokens: seq[Token]): Program =

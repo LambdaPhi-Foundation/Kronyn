@@ -21,5 +21,5 @@ when isMainModule:
     let src = readFile(path)
     discard interp.eval(parse(tokenize(src)))
   except ValueError as e:
-    echo "error: " & e.msg
+    echo "Kronyn error: " & e.msg
     quit(1)

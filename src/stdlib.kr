@@ -1,0 +1,38 @@
+
+#----- Print stuff ---------------------------
+define print proc(msg) {syscall io.output $msg}
+define println proc(msg) {syscall io.outputln $msg}
+
+#----- take input -------------------------
+define ask proc($prompt) {
+       syscall io.output $prompt
+       return [syscall io.input]
+}
+
+
+
+define readfile proc(path) {return [syscall fs.read $path]}
+
+define writefile proc(path, contents) {syscall fs.write $path $contents}
+
+define upper fn(self) {
+       set l [$self.len()]
+       set i 0
+       set newself ""
+       loop{
+		if [$i == l] {break} else {
+		set newself [$newself.concat([[$self.index($i).ascii() - 32].char()])]
+		set val [$val + 1]  
+		}
+	}
+	return $newself
+}
+
+
+
+
+
+
+
+
+

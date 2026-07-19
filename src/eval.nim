@@ -118,9 +118,30 @@ proc evalArg*(env: Env, arg: Arg): Value =
         of "+":
           if l.isInt() and r.isInt(): $(parseInt(l) + parseInt(r))
           else: l & r
-        of "-": $(parseInt(l) - parseInt(r))
-        of "*": $(parseInt(l) * parseInt(r))
-        of "/": $(parseInt(l) div parseInt(r))
+        of "-":
+          if not l.isInt():
+            raise newException(ValueError,
+                               "line " & $arg.line & ": expected integer, got '" & l & "'")
+          elif not r.isInt():
+            raise newException(ValueError,
+                               "line " & $arg.line & ": expected integer, got '" & r & "'")
+          else: $(parseInt(l) - parseInt(r))
+        of "*":
+          if not l.isInt():
+            raise newException(ValueError,
+                               "line " & $arg.line & ": expected integer, got '" & l & "'")
+          elif not r.isInt():
+            raise newException(ValueError,
+                               "line " & $arg.line & ": expected integer, got '" & r & "'")
+          else: $(parseInt(l) * parseInt(r))
+        of "/":
+          if not l.isInt():
+            raise newException(ValueError,
+                               "line " & $arg.line & ": expected integer, got '" & l & "'")
+          elif not r.isInt():
+            raise newException(ValueError,
+                               "line " & $arg.line & ": expected integer, got '" & r & "'")
+          else: $(parseInt(l) div parseInt(r))
         of "..": l & r
         of "==":
           if l == r: "1" else: "0"
@@ -187,18 +208,29 @@ proc evalStmt*(env: Env, stmt: Stmt): Value =
       return val
 
     of "set":
+      if stmt.args.len < 2:
+        raise newException(ValueError,
+          "line " & $stmt.line & ": set requires 2 arguments")
       let val = env.evalArg(stmt.args[1])
       env.setVar(stmt.args[0].word, val)
       result = val
 
     of "evolve":
+      if stmt.args.len < 1:
+        raise newException(ValueError,
+          "line " & $stmt.line & ": evolve requires a string argument")
       let code = env.evalArg(stmt.args[0])
       result = env.evalSub(code)
 
     of "define":
+      if stmt.args.len < 3:
+        raise newException(ValueError, "line " & $stmt.line & ": define requires name, signature, and body")
       let name = stmt.args[0].word
       let defArg = stmt.args[1]
       let bodyArg = stmt.args[2]
+      if bodyArg.kind != argBlock:
+        raise newException(ValueError,
+          "line " & $stmt.line & ": define body must be a block {...}")
 
       var params: seq[string]
       if defArg.kind == argChain and defArg.calls.len > 0:
@@ -210,9 +242,11 @@ proc evalStmt*(env: Env, stmt: Stmt): Value =
           else: discard
 
       let body = bodyArg.body
-      let captured = params 
+      let captured = params
+      let line = stmt.line
       r.registerCmd(name, proc(env: Env, args: seq[Value]): Value =
-                    callFn(env, captured, body, args))
+        if args.len < captured.len: raise newException(ValueError, "line " & $line & ": " & name & " expects " & $captured.len & " args, got " & $args.len)
+        callFn(env, captured, body, args))
       return ""
 
     of "break":
@@ -239,6 +273,7 @@ proc evalStmt*(env: Env, stmt: Stmt): Value =
               result = ""
             of "output":
               write(stdout, args[0])
+              flushFile(stdout)
               result = ""
             of "input":
               result = readLine(stdin)
@@ -290,7 +325,8 @@ proc evalStmt*(env: Env, stmt: Stmt): Value =
         args.add(env.evalArg(a))
       let fn = env.getCmd(stmt.cmd)
       if fn == nil:
-        raise newException(ValueError, "unknown command: " & stmt.cmd)
+        raise newException(ValueError,
+          "line " & $stmt.line & ": unknown command: " & stmt.cmd)
       return fn(env, args)
 
 proc evalArgChain(env: Env, arg: Arg): Value =

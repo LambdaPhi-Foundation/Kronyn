@@ -13,6 +13,7 @@ type
     args*: seq[Arg]
 
   Arg* = ref object
+    line*: int
     case kind*: ArgKind
     of argWord: word*: string
     of argString: str*: string
@@ -30,6 +31,7 @@ type
   Stmt* = object
     cmd*: string
     args*: seq[Arg]
+    line*: int
     
   Program* = seq[Stmt]
 
