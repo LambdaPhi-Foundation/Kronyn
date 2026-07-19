@@ -7,6 +7,16 @@ Written in **Nim**, Kronyn is designed for flexibility and extensibility, provid
 
 ---
 
+## 🏛 The Vision: A Language-Based OS
+The ultimate goal of Kronyn is to transcend being a mere interpreter and instead serve as the core of a **Language-Based Operating System**. 
+
+Inspired by the architectural purity of **Lisp Machines** and the **Oberon OS**, Kronyn aims to collapse the boundary between the programming language and the operating system. In this vision:
+- The interpreter *is* the kernel.
+- System resources are managed as language objects.
+- The environment is entirely malleable, allowing the OS to be extended or modified in real-time using the language itself.
+
+---
+
 ## [|] Philosophy
 In Kronyn, **everything is a string**. However, unlike Tcl, Kronyn introduces a level of rigidity to prevent the "string soup" problem, utilizing three distinct ways to represent strings and a powerful dot-chaining system for operations.
 
@@ -128,11 +138,13 @@ All core functions are defined in `stdlib.kr` and are imported automatically.
 ## [=]Technical Architecture
 
 - **Implementation Language:** [Nim](https://nim-lang.org/)
-- **Interpreter Type:** Currently a **Treewalk Interpreter**.
-- **Roadmap:** 
-    - [ ] Transition from Treewalk to a **Bytecode Interpreter** for increased performance.
-    - [ ] Expansion of the `stdlib.kr` library.
-    - [ ] Enhanced error handling and debugging tools.
+- **Current State:** Treewalk Interpreter.
+- **Roadmap to OS:**
+    - [ ] **Phase 1:** Transition to a **Bytecode Interpreter** for performance.
+    - [ ] **Phase 2:** Expand the `stdlib.kr` and refine `syscall` interfaces.
+    - [ ] **Phase 3:** Develop a minimal kernel/runtime to host the interpreter as the primary system interface.
+    - [ ] **Phase 4:** Implement a fully integrated environment (The "Kronyn Machine").
+
 
 ## [~] Credits
 Kronyn is heavily inspired by:
