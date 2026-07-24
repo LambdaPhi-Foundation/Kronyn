@@ -55,6 +55,31 @@ define <name> fn(<param1>, <param2>) {
 
 ---
 
+## [<>] Technical Implementation & Performance
+
+Kronyn is currently a **Tree-Walking Interpreter**, but it employs several high-performance strategies to minimize the overhead typically associated with this architecture.
+
+### 🚀 The "Embedded Kernel" Strategy
+To eliminate runtime disk I/O and ensure a near-instantaneous boot time, Kronyn utilizes Nim's `staticRead`. The `stdlib.kr` is read at **compile-time** and embedded as a string constant directly into the binary.
+
+```nim
+const STDLIB = staticRead("stdlib.kr")
+
+proc newInterpreter*(): Env =
+  let env = newEnv()
+  env.initKernel()
+  # stdlib is baked in — no runtime disk access required
+  discard env.eval(parse(tokenize(STDLIB)))
+  env
+```
+
+### [!] Runtime Optimizations
+To solve the primary bottlenecks of tree-walking, Kronyn implements the following:
+
+1. **Parse Caching:** To avoid the expensive cycle of `tokenize` $\rightarrow$ `parse` every time a function body or `evalSub` (`[...]`) is called, Kronyn utilizes a `bodyCache`. Once a string is parsed into a Program tree, it is stored and reused.
+2. **Compile-Time Dispatch:** Rather than relying solely on hash table lookups for built-in commands, Kronyn uses Nim macros to generate a compile-time dispatch table for core intents.
+3. **Efficient String Ops:** Leveraging Nim's powerful string handling to maintain the "Everything is a String" philosophy without sacrificing systemic speed.
+
 ## [:] Examples
 
 ### [:.] Fibonacci Sequence
@@ -135,15 +160,13 @@ All core functions are defined in `stdlib.kr` and are imported automatically.
 
 ---
 
-## [=]Technical Architecture
+## [#] Roadmap
 
-- **Implementation Language:** [Nim](https://nim-lang.org/)
-- **Current State:** Treewalk Interpreter.
-- **Roadmap to OS:**
-    - [ ] **Phase 1:** Transition to a **Bytecode Interpreter** for performance.
-    - [ ] **Phase 2:** Expand the `stdlib.kr` and refine `syscall` interfaces.
-    - [ ] **Phase 3:** Develop a minimal kernel/runtime to host the interpreter as the primary system interface.
-    - [ ] **Phase 4:** Implement a fully integrated environment (The "Kronyn Machine").
+- [x] **Phase 1:** Implement basic Treewalk Interpreter.
+- [x] **Phase 2:** Implement `staticRead` embedded kernel and Parse Caching.
+- [ ] **Phase 3:** Transition to a **Bytecode Virtual Machine (VM)** to further reduce execution overhead.
+- [ ] **Phase 4:** Develop a minimal kernel runtime to host Kronyn as the primary system interface.
+- [ ] **Phase 5:** The "Kronyn Machine" — a fully integrated, language-based environment.
 
 
 ## [~] Credits
