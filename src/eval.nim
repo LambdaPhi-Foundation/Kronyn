@@ -1,4 +1,4 @@
-import token, ast, lexer, parser, tables, strutils, os
+import token, ast, lexer, parser, tables, strutils, os, osproc, sequtils
 
 #---- Value ---------------------------------------------
 type Value* = string
@@ -10,6 +10,15 @@ proc isInt*(v: Value): bool =
   try: discard parseInt(v); true
   except: false
 
+const
+  SOME_PREFIX = "\x02"
+  NONE_VAL = "\x03"
+  STDLIB = staticRead("./stdlib.kr")
+
+var
+  bodyCache = initTable[string, Program]()
+  subCache = initTable[string, Arg]()
+  
 #------environment let'sssss goooo ----------------------
 
 type
@@ -55,6 +64,13 @@ proc getCmd*(env: Env, name: string): CommandFn =
 
 proc registerCmd*(env: Env, name: string, fn: CommandFn) = 
   env.cmds[name] = fn
+
+#-------- error handling stuff -------------------------------
+proc mkSome(v: Value): Value = SOME_PREFIX & v
+proc mkNone(): Value = NONE_VAL
+proc isSome(v: Value): bool = v.len > 0 and v[0] == '\x02'
+proc isNone(v: Value): bool = v == NONE_VAL
+proc unwrapVal(v: Value): Value = v[1..^1]
 
 #----declare first cause shit's ain't C -----------------------
 
@@ -166,12 +182,14 @@ proc evalArg*(env: Env, arg: Arg): Value =
 #-----substitute and evaluation stuff ----------------------------
 
 proc evalSub*(env: Env, src: string): Value =
+  if src in subCache:
+    return env.evalArg(subCache[src])
+
   let tokens = tokenize(src)
   var p = newParser(tokens)
-  p.skipNewLines()
+  p.skipNewlines()
   if p.isAtEnd(): return ""
 
-  let first = p.peek()
   let second = if p.pos + 1 < p.tokens.len: p.tokens[p.pos + 1]
                else: Token(kind: tkEof)
 
@@ -179,19 +197,23 @@ proc evalSub*(env: Env, src: string): Value =
                       tkEqEq, tkBangEq, tkLt, tkGt,
                       tkLtEq, tkGtEq, tkAnd, tkOr, tkDotDot}:
     let arg = p.parseArg()
+    subCache[src] = arg
     return env.evalArg(arg)
 
   if second.kind == tkDot:
     let arg = p.parseArg()
+    subCache[src] = arg
     return env.evalArg(arg)
 
   let stmt = p.parseStmt()
   env.evalStmt(stmt)
 
+# Note that we cache expressions (argInfix, argChain) but not statements. Statements have side effects and their structure depends on context...
+    
 proc evalBody*(env: Env, src: string): Value =
-  let tokens  = tokenize(src)
-  let program = parse(tokens)
-  env.eval(program)
+  if src notin bodyCache:
+    bodyCache[src] = parse(tokenize(src))
+  env.eval(bodyCache[src])
 
 
 #---------statement evaluation -------------------------------
@@ -284,14 +306,13 @@ proc evalStmt*(env: Env, stmt: Stmt): Value =
         of "fs":
           case meth
             of "read":
-              if not fileExists(args[0]):
-                raise newException(ValueError, "file not found: " & args[0])
-              result = readFile(args[0])
+              if not fileExists(args[0]): return mkNone()
+              result = mkSome(readFile(args[0]))
             of "write":
               writeFile(args[0], args[1])
               result = ""
             of "exists":
-              result = if fileExists(args[0]): "true" else: "false"
+              result = mkSome(if fileExists(args[0]): "1" else: "0")
             of "append":
               let f = open(args[0], fmAppend)
               f.write(args[1])
@@ -459,11 +480,77 @@ proc initKernel*(env: Env) =
   env.registerCmd("mod", proc(env: Env, args: seq[Value]): Value =
     $(parseInt(args[0]) mod parseInt(args[1])))
 
+  env.registerCmd("exec", proc(env: Env, args: seq[Value]): Value =
+    try:
+      when defined(windows):
+        let (output, _) = execCmdEx("cmd /c " & args[0])
+      else:
+        let (output, _) = execCmdEx("/bin/sh -c " & args[0])
+      output.strip()
+    except OSError as e:
+      raise newException(ValueError, "exec failed: " & e.msg))
+
+  env.registerCmd("lines", proc(env: Env, args: seq[Value]): Value =
+    args[0].split('\n').join(" "))
+
+  env.registerCmd("filter", proc(env: Env, args: seq[Value]): Value =
+    let lines = args[0].split('\n')
+    lines.filterIt(args[1] in it).join("\n"))
+
+  env.registerCmd("count", proc(env: Env, args: seq[Value]): Value =
+    $args[0].split('\n').filterIt(it.len > 0).len)
+
+  env.registerCmd("first", proc(env: Env, args: seq[Value]): Value =
+    let lines = args[0].split('\n').filterIt(it.len > 0)
+    if lines.len > 0: lines[0] else: "")
+
+  env.registerCmd("last", proc(env: Env, args: seq[Value]): Value =
+    let lines = args[0].split('\n').filterIt(it.len > 0)
+    if lines.len > 0: lines[^1] else: "")
+
+  env.registerCmd("some", proc(env: Env, args: seq[Value]): Value =
+    mkSome(args[0]))
+
+  env.registerCmd("none", proc(env: Env, args: seq[Value]): Value =
+    mkNone())
+
+  env.registerCmd("some?", proc(env: Env, args: seq[Value]): Value =
+    if isSome(args[0]): "1" else: "0")
+
+  env.registerCmd("none?", proc(env: Env, args: seq[Value]): Value =
+    if isNone(args[0]): "1" else: "0")
+
+  env.registerCmd("unwrap", proc(env: Env, args: seq[Value]): Value =
+    if not isSome(args[0]):
+      raise newException(ValueError, "unwrap called on none")
+    unwrapVal(args[0]))
+
+  env.registerCmd("unwrapOr", proc(env: Env, args: seq[Value]): Value =
+    if isSome(args[0]): unwrapVal(args[0])
+    else: args[1])
+
+  env.registerCmd("map", proc(env: Env, args: seq[Value]): Value =
+    if isNone(args[0]): return mkNone()
+    let val = unwrapVal(args[0])
+    let body = args[1]
+    let child = newEnv(env.root())
+    child.setVar("it", val)
+    let res = child.evalSub(body)
+    mkSome(res))
+
+  env.registerCmd("try", proc(env: Env, args: seq[Value]): Value =
+    try:
+      mkSome(env.evalBody(args[0]))
+    except ValueError as e:
+      env.root().setVar("err", e.msg)
+      mkNone())
+
 #------- entry -------------------------------------------
 
 proc newInterpreter*(): Env =
   let env = newEnv()
   env.initKernel()
+  discard env.eval(parse(tokenize(STDLIB)))
   env
 
 

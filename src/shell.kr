@@ -1,0 +1,12 @@
+println "Kronyn shell v0.1"
+println "type 'exit' to quit"
+
+loop {
+     set input [ask "intent> "]
+     if [$input == "exit"] {break} else {
+     	set result [try {evolve $input}]
+     	if [$result.none?()] {
+     	   println ["error: " .. $err]
+     	   }
+     }
+}
