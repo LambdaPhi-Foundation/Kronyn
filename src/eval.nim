@@ -1,4 +1,4 @@
-import token, ast, lexer, parser, tables, strutils, os, osproc, sequtils
+import token, ast, lexer, parser, tables, strutils, os, osproc, sequtils, times
 
 #---- Value ---------------------------------------------
 type Value* = string
@@ -18,6 +18,12 @@ const
 var
   bodyCache = initTable[string, Program]()
   subCache = initTable[string, Arg]()
+  timeInEvalStmt* = 0.0
+  timeInEvalArg* = 0.0
+  timeInEvalSub* = 0.0
+  callsEvalStmt* = 0
+  callsEvalArg* = 0
+  callsEvalSub* = 0
   
 #------environment let'sssss goooo ----------------------
 
@@ -117,23 +123,25 @@ proc callFn(env: Env, params: seq[string], body: string, args: seq[Value]): Valu
     result = child.retVal
 
 proc evalArg*(env: Env, arg: Arg): Value =
+  let t = cpuTime()
+  inc callsEvalArg
   case arg.kind
-    of argString: arg.str
-    of argWord: arg.word
-    of argVar: env.getVar(arg.name)
-    of argSub: env.evalSub(arg.sub)
-    of argBlock: arg.body
+    of argString: result = arg.str
+    of argWord: result = arg.word
+    of argVar: result = env.getVar(arg.name)
+    of argSub: result = env.evalSub(arg.sub)
+    of argBlock: result = arg.body
 
     of argChain:
-      env.evalArgChain(arg)
+      result = env.evalArgChain(arg)
 
     of argInfix:
       let l = env.evalArg(arg.left)
       let r = env.evalArg(arg.right)
       case arg.op
         of "+":
-          if l.isInt() and r.isInt(): $(parseInt(l) + parseInt(r))
-          else: l & r
+          if l.isInt() and r.isInt(): result = $(parseInt(l) + parseInt(r))     
+          else: result = l & r
         of "-":
           if not l.isInt():
             raise newException(ValueError,
@@ -141,7 +149,7 @@ proc evalArg*(env: Env, arg: Arg): Value =
           elif not r.isInt():
             raise newException(ValueError,
                                "line " & $arg.line & ": expected integer, got '" & r & "'")
-          else: $(parseInt(l) - parseInt(r))
+          else: result = $(parseInt(l) - parseInt(r))
         of "*":
           if not l.isInt():
             raise newException(ValueError,
@@ -149,7 +157,7 @@ proc evalArg*(env: Env, arg: Arg): Value =
           elif not r.isInt():
             raise newException(ValueError,
                                "line " & $arg.line & ": expected integer, got '" & r & "'")
-          else: $(parseInt(l) * parseInt(r))
+          else: result = $(parseInt(l) * parseInt(r))
         of "/":
           if not l.isInt():
             raise newException(ValueError,
@@ -157,31 +165,35 @@ proc evalArg*(env: Env, arg: Arg): Value =
           elif not r.isInt():
             raise newException(ValueError,
                                "line " & $arg.line & ": expected integer, got '" & r & "'")
-          else: $(parseInt(l) div parseInt(r))
-        of "..": l & r
+          else: result = $(parseInt(l) div parseInt(r))
+        of "..": result = l & r
         of "==":
-          if l == r: "1" else: "0"
+          if l == r: result = "1" else: result = "0"
         of "!=":
-          if l != r: "1" else: "0"
+          if l != r: result = "1" else: result = "0"
         of "<":
-          if parseInt(l) < parseInt(r): "1" else: "0"
+          if parseInt(l) < parseInt(r): result = "1" else: result = "0"
         of ">":
-          if parseInt(l) > parseInt(r): "1" else: "0"
+          if parseInt(l) > parseInt(r): result = "1" else: result = "0"
         of "<=":
-          if parseInt(l) <= parseInt(r): "1" else: "0"
+          if parseInt(l) <= parseInt(r): result = "1" else: result = "0"
         of ">=":
-          if parseInt(l) >= parseInt(r): "1" else: "0"
+          if parseInt(l) >= parseInt(r): result = "1" else: result = "0"
         of "&&":
-          if l.truthy() and r.truthy(): "1" else: "0"
+          if l.truthy() and r.truthy(): result = "1" else: result = "0"
         of "||":
-          if l.truthy() or r.truthy(): "1" else: "0"
+          if l.truthy() or r.truthy(): result = "1" else: result = "0"
         of "!":
-          if r.truthy(): "0" else: "1"
-        else: ""
+          if r.truthy(): result = "0" else: result = "1"
+        else: result = ""
+
+  timeInEvalArg += cpuTime() - 1
 
 #-----substitute and evaluation stuff ----------------------------
 
 proc evalSub*(env: Env, src: string): Value =
+  let t = cpuTime()
+  inc callsEvalSub
   if src in subCache:
     return env.evalArg(subCache[src])
 
@@ -206,13 +218,20 @@ proc evalSub*(env: Env, src: string): Value =
     return env.evalArg(arg)
 
   let stmt = p.parseStmt()
-  env.evalStmt(stmt)
+  result = env.evalStmt(stmt)
+
+  timeInEvalSub += cpuTime() - t
 
 # Note that we cache expressions (argInfix, argChain) but not statements. Statements have side effects and their structure depends on context...
-    
+
+var
+  bodyCacheHits* = 0
+  bodyCacheMiss* = 0
 proc evalBody*(env: Env, src: string): Value =
   if src notin bodyCache:
+    inc bodyCacheMiss
     bodyCache[src] = parse(tokenize(src))
+  else: inc bodyCacheHits
   env.eval(bodyCache[src])
 
 
@@ -220,6 +239,8 @@ proc evalBody*(env: Env, src: string): Value =
 
 
 proc evalStmt*(env: Env, stmt: Stmt): Value =
+  let t = cpuTime()
+  inc callsEvalStmt
   let r = env.root()
   case stmt.cmd
   # The sacred intents MORRIS declares: SET, RETURN, EVOLVE, DEFINE, and also, new ones like SYSCALL and IMPORT
@@ -349,6 +370,8 @@ proc evalStmt*(env: Env, stmt: Stmt): Value =
         raise newException(ValueError,
           "line " & $stmt.line & ": unknown command: " & stmt.cmd)
       return fn(env, args)
+
+  timeInEvalStmt += cpuTime() - t
 
 proc evalArgChain(env: Env, arg: Arg): Value =
   var val = env.evalArg(arg.receiver)
@@ -550,7 +573,9 @@ proc initKernel*(env: Env) =
 proc newInterpreter*(): Env =
   let env = newEnv()
   env.initKernel()
+  let t0 = cpuTime()
   discard env.eval(parse(tokenize(STDLIB)))
+  echo "stdlib load: ", cpuTime() - t0, "s"
   env
 
 

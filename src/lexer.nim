@@ -73,7 +73,7 @@ proc lexWord(l: var Lexer): Token =
                          '(', ')', ',', '.', '"',
                          '[', ']', '{', '}', '#',
                          '$', '+', '-', '*', '/',
-                         '!', '=', '<', '>', '&', '|'}:
+                         '!', '=', '<', '>', '&', '|', '@'}:
     s.add(l.advance())
   if s.len == 0:
     return l.makeToken(tkWord, $l.advance())
@@ -93,6 +93,7 @@ proc nextToken*(l: var Lexer): Token =
   of '[': l.lexNested('[', ']', tkSub)
   of '{': l.lexNested('{', '}', tkBlock)
   of '$': l.lexDollar()
+  of '@': discard l.advance(); l.makeToken(tkAt, "@")
   of '.':
     discard l.advance()
     if l.peek() == '.':

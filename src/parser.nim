@@ -47,10 +47,20 @@ proc opStr(t: Token): string =
   of tkDotDot: ".."
   else: ""
 
-#--- Declare ahead cause shit's ain't C --------------------------
+#--- Declare ahead cause shit's ain't Java --------------------------
 proc parseChainArgs*(p: var Parser): seq[Arg]
 proc parseArg*(p: var Parser): Arg
 proc parsePrimary*(p:var Parser): Arg
+
+proc collectChainCall(p: var Parser): seq[ChainCall] =
+  while p.peek().kind == tkDot:
+    discard p.advance()
+    result.add(p.parseChainCall())
+
+proc attachChain(p: var Parser, base: Arg): Arg =
+  let calls = p.collectChainCalls()
+  if calls.len == 0: base else: chainArg(base, calls)
+
 
 proc parseChainCall*(p: var Parser): ChainCall =
   let line = p.peek().line
@@ -70,7 +80,7 @@ proc parseChainArgs*(p: var Parser): seq[Arg] =
     discard p.advance()
     result.add(p.parseArg())
 
-proc parseDotChain(p: var Parser, receiver: string): Arg =
+proc parseDotChain(p: var Parser, receiver: string): Arg {.deprecated.} =
   let line = p.peek().line
   if p.peek().kind notin {tkDot, tkLParen}:
     return wordArg(receiver)
@@ -99,43 +109,19 @@ proc parsePrimary*(p: var Parser): Arg =
 
   of tkString:
     discard p.advance()
-    if p.peek().kind == tkDot:
-      var calls: seq[ChainCall]
-      while p.peek().kind == tkDot:
-        discard p.advance()
-        calls.add(p.parseChainCall())
-      return chainArg(strArg(t.lexeme), calls)
-    return strArg(t.lexeme)
+    return p.attachChain(strArg(t.lexeme))
 
   of tkSub:
     discard p.advance()
-    if p.peek().kind == tkDot:
-      var calls: seq[ChainCall]
-      while p.peek().kind == tkDot:
-        discard p.advance()
-        calls.add(p.parseChainCall())
-      return chainArg(subArg(t.lexeme), calls)
-    return subArg(t.lexeme)
+    return p.attachChain(subArg(t.lexeme))
 
   of tkBlock:
     discard p.advance()
-    if p.peek().kind == tkDot:
-      var calls: seq[ChainCall]
-      while p.peek().kind == tkDot:
-        discard p.advance()
-        calls.add(p.parseChainCall())
-      return chainArg(blockArg(t.lexeme), calls)
-    return blockArg(t.lexeme)
+    return p.attachChain(subArg(t.lexeme))
 
   of tkDollar:
     discard p.advance()
-    if p.peek().kind == tkDot:
-      var calls: seq[ChainCall]
-      while p.peek().kind == tkDot:
-        discard p.advance()
-        calls.add(p.parseChainCall())
-      return chainArg(varArg(t.lexeme), calls)
-    return varArg(t.lexeme)
+    return p.attachChain(varArg(t.lexeme))
 
   of tkWord:
     discard p.advance()
@@ -143,19 +129,10 @@ proc parsePrimary*(p: var Parser): Arg =
       discard p.advance()
       let args = p.parseChainArgs()
       discard p.advance()
-      var calls: seq[ChainCall]
-      calls.add(ChainCall(name: t.lexeme, args: args))
-      while p.peek().kind == tkDot:
-        discard p.advance()
-        calls.add(p.parseChainCall())
+      var calls: @[ChainCall(name: t.lexeme, args: args)]
+      calls.add(ChainCall(p.collectChainCalls())
       return chainArg(wordArg(""), calls)
-    if p.peek().kind == tkDot:
-      var calls: seq[ChainCall]
-      while p.peek().kind == tkDot:
-        discard p.advance()
-        calls.add(p.parseChainCall())
-      return chainArg(wordArg(t.lexeme), calls)
-    return wordArg(t.lexeme)
+    return p.attachChain(wordArg(t.lexeme))
 
   else:
     discard p.advance()
@@ -170,7 +147,13 @@ proc parseArg*(p: var Parser): Arg =
     return infixArg(left, op, right)
   left
 
+proc parseAnnotation(p: var Parser): seq[ChainCall] =
+  while p.peek().kind == tkAt:
+    result.add(p.parseChainCall())
+    p.skipNewlines()
+
 proc parseStmt*(p: var Parser): Stmt =
+  let annotations = p.parseAnnotations()
   let line = p.peek().line
   let cmd = p.advance().lexeme
   var args: seq[Arg]

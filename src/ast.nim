@@ -31,6 +31,7 @@ type
   Stmt* = object
     cmd*: string
     args*: seq[Arg]
+    annotations*: seq[ChainCall]
     line*: int
     
   Program* = seq[Stmt]

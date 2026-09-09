@@ -5,6 +5,7 @@ type
     tkSub,
     tkBlock,
     tkDollar,
+    tkAt
     tkDot,
     tkLParen,
     tkRParen,
