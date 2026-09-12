@@ -1,0 +1,47 @@
+# @typecheck RTA test: strict kind checking on typed signatures
+@typecheck
+define adder proc(x: int, y: int): int {
+    return [$x + $y]
+}
+writeln [adder 30 12]
+
+# all five kinds + any + $var param style, no return declared
+@typecheck
+define showem proc(a: int, b: string, $c: list, d: any): string {
+    return [$b .. "!"]
+}
+writeln [showem 1 "hey" ["x,y".split(",")] 99]
+
+# some/none kinds
+@typecheck
+define which proc(v: some): string {
+    return [$v.unwrap()]
+}
+writeln [which ["hi".some()]]
+
+# zero params, typed return
+@typecheck
+define answer proc(): int {
+    return 42
+}
+writeln [answer]
+
+# no space around colons parses identically
+@typecheck
+define nospace proc(x:int):int {
+    return [$x + 1]
+}
+writeln [nospace 41]
+
+# fail-fast proof: body side effect never runs on kind violation
+set fired 0
+@typecheck
+define guarded proc(x: int): int {
+    set fired 99
+    return $x
+}
+set g [try {[guarded "notanint"]}]
+writeln ["guarded-none=" .. [$g.none?()]]
+writeln ["fired=" .. $fired]
+
+writeln "typecheck tests done"

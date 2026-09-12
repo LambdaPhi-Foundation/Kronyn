@@ -1,0 +1,5 @@
+@typecheck
+define badparam proc(x: int): int {
+    return [$x + 1]
+}
+writeln [badparam "notanint"]

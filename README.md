@@ -1,14 +1,15 @@
-
 # [*] Kronyn
 
-**Kronyn** is an extensible, interpreted programming language that blends the "everything is a string" philosophy of [Tcl](https://www.tcl.tk/) with the structured "Intent" patterns of the [MORRIS standards](https://github.com/Stanislaw3737/MORRIS-shell). 
+**Kronyn** is an extensible, interpreted programming language that blends the command philosophy of [Tcl](https://www.tcl.tk/) — uniform `command arg…` syntax, everything invokable, code as data — with the structured "Intent" patterns of the [MORRIS standards](https://github.com/Stanislaw3737/MORRIS-shell).
 
-Written in **Nim**, Kronyn is designed for flexibility and extensibility, providing a bridge between a loose scripting environment and a rigid functional structure.
+Written in **Nim** (≥ 2.2.8, no dependencies beyond the toolchain), Kronyn is designed for flexibility and extensibility, providing a bridge between a loose scripting environment and a rigid functional structure.
+
+> The interpreter is a **treewalker, and stays one**. There is no bytecode VM plan: measured profiles show dispatch — not parsing — dominates, and tree-walking keeps `evolve`/`import`/REPL fully general. Performance comes from parse caching, opt-in contracts, RTAs, and the ahead-of-time `-compile` transpiler — never from a new backend.
 
 ---
 
 ## 🏛 The Vision: A Language-Based OS
-The ultimate goal of Kronyn is to transcend being a mere interpreter and instead serve as the core of a **Language-Based Operating System**. 
+The ultimate goal of Kronyn is to transcend being a mere interpreter and instead serve as the core of a **Language-Based Operating System**.
 
 Inspired by the architectural purity of **Lisp Machines** and the **Oberon OS**, Kronyn aims to collapse the boundary between the programming language and the operating system. In this vision:
 - The interpreter *is* the kernel.
@@ -17,88 +18,103 @@ Inspired by the architectural purity of **Lisp Machines** and the **Oberon OS**,
 
 ---
 
-## [|] Philosophy
-In Kronyn, **everything is a string**. However, unlike Tcl, Kronyn introduces a level of rigidity to prevent the "string soup" problem, utilizing three distinct ways to represent strings and a powerful dot-chaining system for operations.
+## [>] Quickstart
 
-### String Representations
-| Syntax | Type | Description |
-| :--- | :--- | :--- |
-| `"..."` | **Literal** | A standard string literal. |
-| `[...]` | **Inferred** | A string whose meaning/value is inferred or evaluated (similar to Tcl's `{}`). |
-| `{...}` | **Block** | A block of string, typically split by newline characters. |
+```sh
+nim c src/kronyn.nim            # build (binary lands in src/)
+./src/kronyn tests/01_basics_vars_arith.kr     # run a script
+./src/kronyn -measure prog.kr   # run with the performance chart
+./src/kronyn -compile prog.kr -o prog   # transpile to C, build native exe
+nim r tests/compile/run.nim     # run the transpiler suite (from repo root)
+```
+
+Every boot reads `essentials.kr` — beside the binary first, then the working directory — with a compile-time embedded copy (`staticRead`) as fallback, so the binary always boots and runtime files win without recompiling.
 
 ---
 
-## [+] Language Features
+## [|] Language Overview
 
-### Intents & Functions
-Kronyn distinguishes between general commands (**Intents**) and object-like methods (**Dot Functions**).
+### Values & syntax
+Values are a tagged variant (`int string list some none`) with a Tcl-like string surface. Three syntactic forms keep strings structured:
 
-#### 1. Custom Intents
-Intents are the primary way to extend the language.
+| Syntax | Meaning |
+| :--- | :--- |
+| `"..."` | **Literal** string (`\n \t \" \\` escapes). |
+| `[...]` | **Inferred**: sub-expression, evaluated immediately. |
+| `{...}` | **Block**: deferred code (bodies, loops, callbacks). |
+
+Bare numeric words are `int`s; `$name` reads a variable. Falsy: `""`, `"0"`, `0`, empty lists, `none` — everything else is truthy, **including `"false"`**. Comparisons (`== != < > <= >=`) and `&& ||` yield `int` `1`/`0`; `+` adds when both sides are int-like else concatenates; `..` always concatenates; `- * /` require integers.
+
+### Intents & dot-functions
+Top-level commands (**Intents**, `proc`) extend the language; method-style calls (**dot-functions**, `fn`) receive the caller as `self` and chain left to right:
+
 ```kronyn
-define <name> proc(<param1>, <param2>) {
-    # Logic goes here
+define greet proc(name) {
+    writeln ["Hello " .. $name]
 }
+greet "World"
+
+define double fn(self) {
+    return [$self * 2]
+}
+writeln 5.double().double()   # 20
 ```
 
-#### 2. Dot Function Chaining
-Kronyn supports method-style chaining, allowing you to call functions directly on values.
-```kronyn
-define <name> fn(<param1>, <param2>) {
-    # Logic goes here
-}
+### Control flow & metaprogramming
+- `if` / `elif` / `else`, `while cond body`, `loop body` + `break`, `iter`, `return`.
+- `set` assigns (a call evaluates in a fresh child scope, so `set` never leaks out).
+- `evolve <string>` runs code in the current scope; `import <path>` runs a file in it.
+- `try {…}` yields `some(value)` or `none()`, setting `err` / `errkind` / `errline` / `errtrace`.
 
-# Usage:
-"Hello".reverse()
-```
+### ["" ] Kernel builtins
+Strings: `len toUpper toLower trim slice index contains replace split concat` (plus `..`; note `contains` returns the strings `"true"`/`"false"`). Conversion/math: `int str ascii char mod exec`. Predicates: `typeof` plus strict `isInt isString isList` (`1`/`0`). Lists arrive via `split`/`lines` and thread through `filter count first last`. Options: `some none some? none? unwrap unwrapOr map`. I/O: `writeln write input readln`.
+
+### [<>] Syscalls — the only outside world
+`syscall <namespace>.<method> <args…>`, arity-checked through a central registry:
+
+| Namespace | Calls |
+| :--- | :--- |
+| `io` | `output(msg)` / `outputln(msg)`, `input` (one stdin line) |
+| `fs` | `read` (`some`, missing/unreadable is `none`), `write` / `append`, `exists` (`1`/`0`), `remove`, `list` (sorted names) |
+| `proc` | `exit [code]`, `args` (trailing CLI args as a list) |
+
+### [+] Standard intents (`essentials.kr`, all `@typecheck`ed)
+I/O: `print println ask readfile writefile`. Algorithms: `fib`, `factorial`, `reverse`, `isPalindrome`, tail-recursive `sum`. Capped by policy — further libraries ship as opt-in `import` modules, never baked core. Runnable contract: `tests/32_stdlib_essentials.kr`.
+
+### [@] Runtime annotations (RTAs)
+Opt-in strictness per procedure; unknown `@anything` is always a hard error:
+
+| RTA | Form | Effect |
+|---|---|---|
+| `@retry(n)` | any position | re-runs the call up to n times on failure |
+| `@actor` | bare, `define`-only | each call runs in its own OS process (own GC+heap), caller blocks; share-nothing |
+| `@forkexec` | bare, `define`-only | like `@actor`, but the child inherits the full world (all defines + globals); result is the only channel back |
+| `@typecheck` | bare + inline `proc(x: int): ret` | strict kind contracts on entry (fail fast) and return |
+| `@tailcallopt` | bare, `define`-only | direct self tail calls loop in one frame (depth 100k verified) |
+| `@deprecated` | bare or `("msg")`, `define`-only | first call per proc warns on stderr; the call still runs |
+| `@timeout(ms)` | `define`-only | millisecond window; expiry is a catchable `timeout` error (preemptive kill for actors) |
+
+### [!] Errors
+All failures are `KronynError(kind, line, message)` with kinds `arity type unknown-command annotation division bounds option io actor fork timeout error`. Uncaught errors print the message plus a capped logical stack. See `Discipline/ERRORS.md`.
 
 ---
-
-## [<>] Technical Implementation & Performance
-
-Kronyn is currently a **Tree-Walking Interpreter**, but it employs several high-performance strategies to minimize the overhead typically associated with this architecture.
-
-### 🚀 The "Embedded Kernel" Strategy
-To eliminate runtime disk I/O and ensure a near-instantaneous boot time, Kronyn utilizes Nim's `staticRead`. The `stdlib.kr` is read at **compile-time** and embedded as a string constant directly into the binary.
-
-```nim
-const STDLIB = staticRead("stdlib.kr")
-
-proc newInterpreter*(): Env =
-  let env = newEnv()
-  env.initKernel()
-  # stdlib is baked in — no runtime disk access required
-  discard env.eval(parse(tokenize(STDLIB)))
-  env
-```
-
-### [!] Runtime Optimizations
-To solve the primary bottlenecks of tree-walking, Kronyn implements the following:
-
-1. **Parse Caching:** To avoid the expensive cycle of `tokenize` $\rightarrow$ `parse` every time a function body or `evalSub` (`[...]`) is called, Kronyn utilizes a `bodyCache`. Once a string is parsed into a Program tree, it is stored and reused.
-2. **Compile-Time Dispatch:** Rather than relying solely on hash table lookups for built-in commands, Kronyn uses Nim macros to generate a compile-time dispatch table for core intents.
-3. **Efficient String Ops:** Leveraging Nim's powerful string handling to maintain the "Everything is a String" philosophy without sacrificing systemic speed.
 
 ## [:] Examples
 
-### [:.] Fibonacci Sequence
-Demonstrating recursion and dot-chaining.
+### [:.] Fibonacci (recursion + dot-chaining)
 ```kronyn
 define fib fn(self) {
-    if [$self == 0] {return 0} 
-    elif [$self == 1] {return 1} 
+    if [$self == 0] {return 0}
+    elif [$self == 1] {return 1}
     else {return [[$self - 1].fib() + [$self - 2].fib()]}
 }
 
 writeln 0.fib()
-writeln 1.fib()
 writeln 5.fib()
-writeln 10.fib()
+writeln 10.fib()   # 55
 ```
 
-### [:.] String Reversal
-Demonstrating loops, variable assignment, and string indexing.
+### [:.] String reversal (loops + assignment + indexing)
 ```kronyn
 define reverse fn(self) {
     set result ""
@@ -112,64 +128,71 @@ define reverse fn(self) {
 }
 
 writeln "hello".reverse()
-writeln "Kronyn".reverse()
 ```
 
-### [:.] I/O & System Calls
+### [:.] I/O & system calls
 ```kronyn
-# User Input
 syscall io.output "enter your name: "
 set name [syscall io.input]
 writeln ["Hello " .. $name]
 
-# File Operations
 syscall fs.write "test.txt" "hello from Kronyn"
 set contents [syscall fs.read "test.txt"]
-writeln $contents
+writeln [$contents.unwrap()]
 ```
 
 ---
 
-## [[]] Standard Library (Built-ins)
+## [?] Tooling & tests
 
-All core functions are defined in `stdlib.kr` and are imported automatically.
+```
+kronyn [-measure] <file.kr> [args...]          # run; args via proc.args
+kronyn -compile <file.kr> [-o out] [--emit-c] [--no-cache]  # transpile to C, build exe
+kronyn --actor-run <job> <res>                 # internal worker entry point
+kronyn --forkexec-run <job> <res>              # internal fork worker entry point
+```
 
-### [-] Control Flow
-- `if` / `elif` / `else`: Conditional branching.
-- `while`: Executes a block while a condition is truthy.
-- `loop`: An infinite loop (use `break` to exit).
-- `iter`: Iteration logic.
+- `-measure` adds the `essentials load` timing plus `body cache` and `eval*` counters (`-d:kronynProfile` builds add timings).
+- `-compile` translates a declared subset to C (`kronyn_rt.h/.c` runtime) and shells to gcc/clang — refusals (`evolve`, `@actor`, `@forkexec`, …) carry file:line diagnostics. See `COMPILE.md`.
+- `tests/*.kr` numbered basic→advanced: `01–05` basics, `06–09` control flow, `10–14` procedures, `15` evolve, `16–17` errors, `18–19` I/O, `20` shell, `21–31` RTAs (retry/actor/typecheck/tailcall), `32–34` stdlib/syscall/error contracts, `35–37` deprecated/timeout/forkexec, `38` showcase, `39` bench.
+- `tests/compile/` (run with `nim r tests/compile/run.nim`): 28 transpiler cases — twin, delta, runfail, refusal.
+- `movieSet/`: 12-scene production actor stage + `PRODUCTION.md`.
+- `translation/`: 13-scene production transpile stage + `PRODUCTION.md`.
 
-### [""] String Manipulation
-- `.len()`: Returns string length.
-- `.toUpper()` / `.toLower()`: Changes case.
-- `.trim()`: Removes whitespace.
-- `.slice(start, end)`: Extracts a substring.
-- `.index(idx)`: Gets character at position.
-- `.contains(str)`: Returns true/false.
-- `.replace(old, new)`: Replaces text.
-- `.split(delim)`: Splits string into a space-joined list.
-- `concat` / `..`: Joins two strings.
+---
 
-### [&] Data Conversion & Math
-- `int`: Converts string to integer.
-- `str`: Ensures value is a string.
-- `ascii`: Returns ASCII value of the first character.
-- `char`: Converts an integer to an ASCII character.
-- `mod`: Returns the remainder of a division.
+## [<>] Architecture
+
+```
+.kr source → Lexer → Parser → AST → Treewalk evaluator → Env scopes
+                                            ├── bodyCache / subCache (AST caches)
+                                            ├── RTA wrappers (retry / actor / contracts / trampoline / warn / deadlines)
+                                            └── syscall registry (io / fs / proc)
+```
+
+| Module | Role |
+|---|---|
+| `src/token.nim` `src/lexer.nim` | Tokens; char scanner (`"…"` escapes, nest-aware `[...]`/`{...}`, `$name`, `@`, `.` vs `..`) |
+| `src/ast.nim` `src/parser.nim` | AST (`word string sub block var chain infix typedParam`); recursive descent with `name(...)` calls, `name: type` params, `@ann` attachments |
+| `src/eval.nim` | The runtime: values, scopes, dispatch, builtins, syscalls, RTAs, errors, actor/fork transport |
+| `src/kronyn.nim` | CLI driver |
+| `src/essentials.kr` | Curated standard intents, baked in via `staticRead` |
+| `src/codegen.nim` `src/kronyn_rt.h/.c` | Transpiler emitter + shared C runtime behind `-compile` |
 
 ---
 
 ## [#] Roadmap
 
-- [x] **Phase 1:** Implement basic Treewalk Interpreter.
-- [x] **Phase 2:** Implement `staticRead` embedded kernel and Parse Caching.
-- [ ] **Phase 3:** Transition to a **Bytecode Virtual Machine (VM)** to further reduce execution overhead.
-- [ ] **Phase 4:** Develop a minimal kernel runtime to host Kronyn as the primary system interface.
-- [ ] **Phase 5:** The "Kronyn Machine" — a fully integrated, language-based environment.
+- [x] Treewalk interpreter with parse caching and embedded kernel.
+- [x] Seven RTAs: `@retry`, `@actor`, `@forkexec`, `@typecheck`, `@tailcallopt`, `@deprecated`, `@timeout`.
+- [x] `-measure` observability and `-compile` transpiler (M1–M4) with twin-parity suites and production stages.
+- [ ] Opt-in `import` modules beyond the capped essentials core.
+- [ ] Actor hardening: timeouts/watchdog for untrusted code, richer worker story.
+- [ ] Tail-call micro-opts (cached descriptors, frame reuse).
+- [ ] The long arc stays what it always was: GOCRAZY-style self-specialization research on hold, while the treewalker remains the one and only execution engine — and, stepwise, the language-based machine itself.
 
+## [~] Docs & credits
 
-## [~] Credits
-Kronyn is heavily inspired by:
-- **Tcl**: For the "everything is a string" philosophy.
-- **MORRIS Standards**: For the implementation of "Intents".
+- Start here → this file. Canonical reference → `SUPER.md`.
+- Subsystems → `Discipline/ACTORS.md` `Discipline/FORKEXEC.md` `Discipline/TYPES.md` `Discipline/TAILCALL.md` `Discipline/DEPRECATED.md` `Discipline/TIMEOUT.md` `Discipline/ERRORS.md` `Discipline/SYSCALL.md` · numbers → `PERF.md` · transpiler → `COMPILE.md` · issues → `Negatives/` · deferred compiler dream → `GOCRAZY.md` (on hold).
+- Kronyn is heavily inspired by **Tcl** (command philosophy) and the **MORRIS standards** (Intents).

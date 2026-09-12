@@ -1,0 +1,6 @@
+# translation import library (not a scene): one proc plus one
+# top-level binding, both visible after import.
+define helper proc(x) {
+    return [$x * 10]
+}
+set libtag "lib-v1"

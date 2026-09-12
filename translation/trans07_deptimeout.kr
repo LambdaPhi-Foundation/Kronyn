@@ -1,0 +1,52 @@
+# trans07: @deprecated still runs (warn-once on stderr, twinned by
+# the harness); @timeout bounds plain procs (fast ok, tight window
+# fires, retry gets fresh windows).
+define check proc(got, want, label) {
+    if [$got == $want] {
+        writeln ["PASS: " .. $label]
+    } else {
+        writeln ["FAIL: " .. $label]
+        syscall proc.exit 1
+    }
+}
+@deprecated("use newadd instead")
+define oldadd proc(a, b) {
+    return [$a + $b]
+}
+check [oldadd 20 22] 42 "deprecated-runs"
+check [oldadd 1 2] 3 "deprecated-again"
+@timeout(3000)
+define quick proc(x) {
+    return [$x * 2]
+}
+check [quick 21] 42 "timeout-generous"
+@timeout(150)
+define hanging proc() {
+    loop {
+        set x 1
+    }
+    return "never"
+}
+set r [try {hanging}]
+if [$r.none?()] {
+    check $errkind "timeout" "timeout-kind"
+} else {
+    writeln "FAIL: hanging should have timed out"
+    syscall proc.exit 1
+}
+@timeout(250)
+@retry(2)
+define slowsync proc() {
+    loop {
+        set x 1
+    }
+    return "never"
+}
+set r2 [try {slowsync}]
+if [$r2.none?()] {
+    check $errkind "timeout" "retry-timeout-kind"
+} else {
+    writeln "FAIL: slowsync should have exhausted"
+    syscall proc.exit 1
+}
+writeln "trans07 done"

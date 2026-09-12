@@ -1,0 +1,53 @@
+# trans06: @retry on defines and statements (fresh window per
+# attempt, exhaustion). Marker self-cleaned, portable path.
+define check proc(got, want, label) {
+    if [$got == $want] {
+        writeln ["PASS: " .. $label]
+    } else {
+        writeln ["FAIL: " .. $label]
+        syscall proc.exit 1
+    }
+}
+syscall fs.remove "translation/tmp_retry.txt"
+@retry(3)
+define flaky proc() {
+    set r [syscall fs.read "translation/tmp_retry.txt"]
+    if [$r.none?()] {
+        syscall fs.write "translation/tmp_retry.txt" "seen"
+        writeln [10 / 0]
+        return "unreached"
+    } else {
+        return "flaky ok"
+    }
+}
+check [flaky] "flaky ok" "retry-eventual"
+@retry(2)
+define alwaysfail proc() {
+    writeln [10 / 0]
+    return "unreached"
+}
+set r [try {alwaysfail}]
+if [$r.none?()] {
+    check $errkind "division" "retry-exhaust-kind"
+} else {
+    writeln "FAIL: alwaysfail should have exhausted"
+    syscall proc.exit 1
+}
+@retry(2)
+define quick proc(x) {
+    return [$x * 2]
+}
+check [quick 21] 42 "retry-fast"
+@retry(2)
+writeln "stmt-retry-once"
+syscall fs.remove "translation/tmp_retry.txt"
+syscall fs.remove "translation/tmp_sretry.txt"
+@retry(3)
+if [[syscall fs.read "translation/tmp_sretry.txt"].none?()] {
+    syscall fs.write "translation/tmp_sretry.txt" "seen"
+    writeln [10 / 0]
+} else {
+    writeln "stmt-recovered"
+}
+syscall fs.remove "translation/tmp_sretry.txt"
+writeln "trans06 done"

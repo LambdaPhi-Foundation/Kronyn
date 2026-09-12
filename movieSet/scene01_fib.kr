@@ -1,0 +1,28 @@
+# scene01: basic @actor correctness. Recursion inside the worker is
+# local (the worker re-registers the proc plain), so deep fib is fast.
+@actor
+define afib fn(self) {
+    if [$self == 0] {
+        return 0
+    } elif [$self == 1] {
+        return 1
+    } else {
+        return [[$self - 1].afib() + [$self - 2].afib()]
+    }
+}
+
+define check proc(got, want, label) {
+    if [$got == $want] {
+        writeln ["PASS: " .. $label]
+    } else {
+        writeln ["FAIL: " .. $label]
+        syscall proc.exit 1
+    }
+}
+
+check 0.afib() 0 "afib(0)=0"
+check 1.afib() 1 "afib(1)=1"
+check 10.afib() 55 "afib(10)=55"
+check 12.afib() 144 "afib(12)=144"
+check 20.afib() 6765 "afib(20)=6765"
+writeln "scene01 done"

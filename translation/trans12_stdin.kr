@@ -1,0 +1,14 @@
+# trans12: stdin. The harness pipes `bob` to both backends.
+define check proc(got, want, label) {
+    if [$got == $want] {
+        writeln ["PASS: " .. $label]
+    } else {
+        writeln ["FAIL: " .. $label]
+        syscall proc.exit 1
+    }
+}
+set n [ask "name: "]
+check $n "bob" "ask-line"
+set m [syscall io.input]
+check $m "bob" "syscall-input"
+writeln "trans12 done"

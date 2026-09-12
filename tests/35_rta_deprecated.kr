@@ -1,0 +1,68 @@
+# @deprecated RTA test: procs still run, misuse is an annotation error.
+# Warn-once frequency and stderr routing are verified manually (see Discipline/DEPRECATED.md):
+# each deprecated proc below must emit exactly one stderr line per process
+# no matter how often (or how recursively) it is called.
+define checkneg proc(code, expected) {
+    set r [try {evolve $code}]
+    if [$r.none?()] {
+        if [[$err.contains($expected)] == "true"] {writeln ["neg-ok: " .. $expected]} else {writeln ["NEG-UNEXPECTED: " .. $err]}
+    } else {
+        writeln ["NEG-NOT-RAISED: " .. $expected]
+    }
+}
+
+# deprecated procs still run normally (bare and custom message)
+@deprecated
+define oldadd proc(a, b) {
+    return [$a + $b]
+}
+writeln [oldadd 3 4]
+
+@deprecated("use newgreet instead")
+define oldgreet proc(name) {
+    return ["hi " .. $name]
+}
+writeln [oldgreet "bob"]
+
+# repeated calls stay correct (second calls must stay silent on stderr)
+writeln [oldadd 10 20]
+writeln [oldgreet "alice"]
+
+# dot-function form
+@deprecated("use double2 instead")
+define olddouble fn(self) { return [$self * 2] }
+writeln 21.olddouble()
+
+# misuse is an annotation error (define-time, catchable via evolve)
+checkneg "@deprecated(\"a\", \"b\") define bad proc() {return 1}" "takes at most one"
+checkneg "@deprecated @deprecated define dup proc() {return 1}" "duplicate @deprecated"
+checkneg "@deprecatd define typo proc() {return 1}" "unknown annotation"
+
+# interplay: typecheck still enforced, retry/tailcall/actor still work
+@deprecated("use adder2 instead")
+@typecheck
+define oldtyped proc(x: int): int { return [$x + 1] }
+writeln [oldtyped 41]
+set r [try {oldtyped "notanint"}]
+if [$r.none?()] {writeln ["type-err-ok: " .. $err]} else {writeln "ERROR: typecheck should have failed"}
+
+@deprecated
+@retry(2)
+define oldretry proc() { return "retry-ok" }
+writeln [oldretry]
+
+@deprecated("use countdown2 instead")
+@tailcallopt
+define oldcount proc(n, acc) {
+    if [$n == 0] {return $acc} else {return [oldcount [$n - 1] [$acc + $n]]}
+}
+writeln [oldcount 1000 0]
+
+@deprecated("use fastfib instead")
+@actor
+define oldafib fn(self) {
+    if [$self == 0] {return 0} elif [$self == 1] {return 1} else {return [[$self - 1].oldafib() + [$self - 2].oldafib()]}
+}
+writeln 8.oldafib()
+
+writeln "deprecated tests done"

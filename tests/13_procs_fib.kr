@@ -1,0 +1,8 @@
+define fib fn(self) {
+       if [$self == 0] {return 0} elif [$self == 1] {return 1} else {return [[$self - 1].fib() + [$self - 2].fib()]}
+}
+
+writeln 0.fib()
+writeln 1.fib()
+writeln 5.fib()
+writeln 10.fib()

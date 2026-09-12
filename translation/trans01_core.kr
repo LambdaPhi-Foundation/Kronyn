@@ -1,0 +1,70 @@
+# trans01: M1 core surface — values, arithmetic, strings, lists,
+# options, control flow. Self-asserting: first FAIL exits nonzero.
+define check proc(got, want, label) {
+    if [$got == $want] {
+        writeln ["PASS: " .. $label]
+    } else {
+        writeln ["FAIL: " .. $label]
+        syscall proc.exit 1
+    }
+}
+check [10 + 5] 15 "add"
+check [10 - 3] 7 "sub"
+check [10 * 3] 30 "mul"
+check [10 / 2] 5 "div"
+check [10 == 10] 1 "eq"
+check [10 != 5] 1 "ne"
+check [3 < 5] 1 "lt"
+check [5 > 3] 1 "gt"
+check ["a" + "b"] "ab" "str-plus-concat"
+check ["x" .. "y"] "xy" "concat-op"
+check [[1 < 2] && [2 < 3]] 1 "and"
+check [[1 > 2] || [2 < 3]] 1 "or"
+check "hello".toUpper() "HELLO" "upper"
+check "KRoNyn".toLower().len() 6 "lower-len"
+check "   padded   ".trim() "padded" "trim"
+check "hello".contains("ell") "true" "contains-true"
+check "hello".contains("zzz") "false" "contains-false"
+check "hello world".replace("world", "kronyn") "hello kronyn" "replace"
+check "A".ascii() 65 "ascii"
+check 65.char() "A" "char"
+check "hello".index(1) "e" "index"
+check "hello".slice(1, 4) "ell" "slice"
+check [10.mod(3)] 1 "mod"
+check 7.len() 1 "int-len-is-digits"
+set items ["a,b,c".split(",")]
+check [$items.len()] 3 "split-len"
+check ["x".some()].some?() 1 "some-pred"
+check [none()].none?() 1 "none-pred"
+check [["v".some()].unwrapOr("d")] "v" "unwrapOr-some"
+check [none().unwrapOr("d")] "d" "unwrapOr-none"
+check [["v".some()].unwrap()] "v" "unwrap"
+check [typeof 7] "int" "typeof-int"
+check [typeof "s"] "string" "typeof-string"
+check [isInt 7] 1 "isInt-true"
+check [isInt "7"] 0 "isInt-strict"
+check [isString "7"] 1 "isString"
+check [isList $items] 1 "isList"
+set x 10
+if [$x == 0] {
+    check 0 1 "if-zero-branch"
+} elif [$x == 10] {
+    check 1 1 "if-elif-branch"
+} else {
+    check 0 1 "if-else-branch"
+}
+set i 0
+set s 0
+while {$i < 5} {
+    set s [$s + $i]
+    set i [$i + 1]
+}
+check $s 10 "while-sum"
+loop {
+    if [$i > 7] {
+        break
+    }
+    set i [$i + 1]
+}
+check $i 8 "loop-break"
+writeln "trans01 done"

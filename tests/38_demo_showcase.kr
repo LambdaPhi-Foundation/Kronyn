@@ -1,0 +1,62 @@
+# =======================================================
+# KRONYN LANGUAGE SHOWCASE DEMO
+# =======================================================
+
+writeln "======================================================="
+writeln "       [*] KRONYN SYSTEM ENGINE SHOWCASE [*]"
+writeln "======================================================="
+writeln ""
+
+# 1. String Manipulation & Method Chaining
+writeln "[1] Method Chaining & String Operations:"
+set text "   kronyn language engine   "
+writeln $text.trim().toUpper()
+writeln ""
+
+# 2. Custom Intents & Recursion (Factorial)
+writeln "[2] Custom Intents & Recursion (Factorial):"
+define factorial fn(self) {
+    if [$self == 0] {return 1} else {return [$self * [$self - 1].factorial()]}
+}
+writeln "5! = "
+writeln 5.factorial()
+writeln "7! = "
+writeln 7.factorial()
+writeln ""
+
+# 3. String Reversal & Palindrome Checker
+writeln "[3] Dynamic String Algorithms (Palindrome Check):"
+define reverse fn(self) {
+    set result ""
+    set i [$self.len() - 1]
+    loop {
+        if [$i < 0] {break}
+        set result [$result .. $self.index($i)]
+        set i [$i - 1]
+    }
+    return $result
+}
+
+define isPalindrome fn(self) {
+    if [$self.reverse() == $self] {return "true"} else {return "false"}
+}
+
+writeln "Is 'racecar' a palindrome?"
+writeln "racecar".isPalindrome()
+writeln "Is 'kronyn' a palindrome?"
+writeln "kronyn".isPalindrome()
+writeln ""
+
+# 4. Built-in Option Monad & Null Safety
+writeln "[4] Option Monad & Null-Safe File Syscall:"
+set contents [syscall fs.read "SPEC.md"]
+if [$contents.some?()] {
+    writeln "    [OK] Successfully read SPEC.md via fs.read syscall!"
+} else {
+    writeln "    [!] File missing!"
+}
+
+writeln ""
+writeln "======================================================="
+writeln " Showcase Complete. All Intents Executed Successfully. "
+writeln "======================================================="

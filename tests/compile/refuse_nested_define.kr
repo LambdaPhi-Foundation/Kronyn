@@ -1,0 +1,5 @@
+define outer proc() {
+    define inner proc() {return 1}
+    return [inner]
+}
+writeln [outer]

@@ -1,0 +1,28 @@
+# trans09: syscall surface + proc.args. The harness runs both
+# backends with trailing args `alpha beta`, so argv must read `2`
+# then `alpha beta` in each. Marker self-cleaned.
+define check proc(got, want, label) {
+    if [$got == $want] {
+        writeln ["PASS: " .. $label]
+    } else {
+        writeln ["FAIL: " .. $label]
+        syscall proc.exit 1
+    }
+}
+syscall fs.remove "translation/tmp_sys.txt"
+syscall fs.write "translation/tmp_sys.txt" "stage-data"
+check [syscall fs.exists "translation/tmp_sys.txt"] 1 "sys-written"
+set back [syscall fs.read "translation/tmp_sys.txt"]
+check [$back.unwrap()] "stage-data" "sys-roundtrip"
+syscall fs.append "translation/tmp_sys.txt" "+more"
+set back2 [syscall fs.read "translation/tmp_sys.txt"]
+check [$back2.unwrap()] "stage-data+more" "sys-append"
+syscall fs.remove "translation/tmp_sys.txt"
+check [syscall fs.exists "translation/tmp_sys.txt"] 0 "sys-removed"
+check [syscall fs.remove "translation/tmp_sys.txt"].none?() 1 "sys-missing-none"
+check [[syscall fs.list "translation"].contains("trans01_core.kr")] "true" "sys-list"
+syscall io.output "inline:"
+syscall io.outputln "done"
+check [[syscall proc.args].len()] 2 "argv-len"
+check [syscall proc.args] "alpha beta" "argv-vals"
+writeln "trans09 done"

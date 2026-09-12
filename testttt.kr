@@ -1,0 +1,20 @@
+
+define printer proc(x) {
+    println $x
+}
+
+
+@timeout(500000)
+define timecheck proc() {
+    set i 0
+    loop {
+        printer "Hello"
+        set i [$i + 1]
+        if [$i < 2000] {
+            break
+        }
+    }
+}
+
+
+timecheck

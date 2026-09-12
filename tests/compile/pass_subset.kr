@@ -1,0 +1,43 @@
+# compile-suite: M1 surface (control flow, strings, lists, options,
+# syscalls). Twin case: interpreted and compiled stdout must match.
+set x 10
+if [$x == 0] {
+    writeln "zero"
+} elif [$x == 1] {
+    writeln "one"
+} else {
+    writeln "many"
+}
+set i 0
+set s 0
+while {$i < 5} {
+    set s [$s + $i]
+    set i [$i + 1]
+}
+writeln $s
+loop {
+    if [$i > 7] {
+        break
+    }
+    set i [$i + 1]
+}
+writeln $i
+syscall fs.write "tests/compile/tmp_demo.txt" "stage-data"
+writeln [syscall fs.exists "tests/compile/tmp_demo.txt"]
+set back [syscall fs.read "tests/compile/tmp_demo.txt"]
+writeln [$back.unwrap()]
+syscall fs.remove "tests/compile/tmp_demo.txt"
+writeln [syscall fs.exists "tests/compile/tmp_demo.txt"]
+set items ["a,b,c".split(",")]
+writeln [$items.len()]
+writeln ["x".some()].some?()
+writeln [none()].none?()
+writeln [["v".some()].unwrapOr("d")]
+writeln [none().unwrapOr("d")]
+writeln [typeof 7]
+writeln [isInt "7"]
+writeln "hello".slice(1, 4)
+writeln [10.mod(3)]
+writeln ["a" + "b"]
+writeln [3 + 4]
+writeln "subset done"

@@ -1,0 +1,14 @@
+# trans10: exec runs the platform shell, captures merged output
+# stripped, ignores status. `echo` is portable (cmd and sh).
+define check proc(got, want, label) {
+    if [$got == $want] {
+        writeln ["PASS: " .. $label]
+    } else {
+        writeln ["FAIL: " .. $label]
+        syscall proc.exit 1
+    }
+}
+check ["echo hi".exec()] "hi" "exec-echo"
+set e ["nonexistentcmd123".exec()]
+check [$e.contains("nonexistentcmd123")] "true" "exec-merge"
+writeln "trans10 done"

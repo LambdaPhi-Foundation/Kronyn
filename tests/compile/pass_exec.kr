@@ -1,0 +1,4 @@
+# compile-suite: exec runs the platform shell, captures merged
+# output stripped, ignores status. `echo` is portable (cmd and sh).
+writeln ["echo hi".exec()]
+writeln "exec done"

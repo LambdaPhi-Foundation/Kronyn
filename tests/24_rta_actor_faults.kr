@@ -1,0 +1,20 @@
+# Demo 2: fault isolation. A crashing actor cannot kill the parent.
+# Both failures come back as catchable errors; the parent continues.
+# Expected: two "caught:" lines naming the actors, then done.
+@actor
+define divider fn(self, x) {
+    return [$self / $x]
+}
+
+@actor
+define badcmd proc() {
+    nosuchcmd_boom
+}
+
+set r1 [try {10.divider(0)}]
+if [$r1.none?()] {writeln ["caught divider: " .. $err]} else {writeln "ERROR: divider should fail"}
+
+set r2 [try {badcmd}]
+if [$r2.none?()] {writeln ["caught badcmd: " .. $err]} else {writeln "ERROR: badcmd should fail"}
+
+writeln "demo2 done"

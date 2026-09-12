@@ -1,0 +1,58 @@
+# trans05: try shapes, err vars (kinds/messages only), nested try,
+# try-in-proc, break-across-try discipline.
+define check proc(got, want, label) {
+    if [$got == $want] {
+        writeln ["PASS: " .. $label]
+    } else {
+        writeln ["FAIL: " .. $label]
+        syscall proc.exit 1
+    }
+}
+set r [try {writeln [10 / 0]}]
+if [$r.none?()] {
+    check $errkind "division" "try-kind"
+} else {
+    writeln "FAIL: div should have raised"
+    syscall proc.exit 1
+}
+set r2 [try {writeln "inner-ok"}]
+if [$r2.some?()] {
+    check [$r2.unwrap()] "" "try-some-value"
+} else {
+    writeln "FAIL: should have been some"
+    syscall proc.exit 1
+}
+set r3 [try {[none()].unwrap()}]
+if [$r3.none?()] {
+    check $errkind "option" "try-unwrap-kind"
+} else {
+    writeln "FAIL: unwrap should have raised"
+    syscall proc.exit 1
+}
+define early proc(x) {
+    set r [try {writeln [$x / 0]}]
+    if [$r.none?()] {
+        return "caught-inside"
+    }
+    return "uncaught"
+}
+check [early 10] "caught-inside" "try-in-proc"
+set i 0
+while {$i < 10} {
+    set r [try {writeln [10 / 0]}]
+    if [$r.none?()] {
+        set i [$i + 1]
+    }
+    if [$i == 3] {
+        break
+    }
+}
+check $i 3 "break-across-try"
+set r4 [try {writeln [10 / 0]}]
+if [$r4.none?()] {
+    check $errkind "division" "catch-after-break"
+} else {
+    writeln "FAIL: outer catch"
+    syscall proc.exit 1
+}
+writeln "trans05 done"

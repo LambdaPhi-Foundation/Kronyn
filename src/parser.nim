@@ -13,7 +13,7 @@ proc newParser*(token: seq[Token]): Parser =
 proc peek*(p: Parser): Token =
   p.tokens[p.pos]
 
-proc advance(p: var Parser): Token =
+proc advance*(p: var Parser): Token =
   result = p.tokens[p.pos]
   inc p.pos
 
@@ -51,6 +51,8 @@ proc opStr(t: Token): string =
 proc parseChainArgs*(p: var Parser): seq[Arg]
 proc parseArg*(p: var Parser): Arg
 proc parsePrimary*(p:var Parser): Arg
+proc parseChainCall*(p: var Parser): ChainCall
+proc parseAnnotation(p: var Parser): seq[ChainCall]
 
 proc collectChainCall(p: var Parser): seq[ChainCall] =
   while p.peek().kind == tkDot:
@@ -58,7 +60,7 @@ proc collectChainCall(p: var Parser): seq[ChainCall] =
     result.add(p.parseChainCall())
 
 proc attachChain(p: var Parser, base: Arg): Arg =
-  let calls = p.collectChainCalls()
+  let calls = p.collectChainCall()
   if calls.len == 0: base else: chainArg(base, calls)
 
 
@@ -70,15 +72,41 @@ proc parseChainCall*(p: var Parser): ChainCall =
     discard p.advance()
     args = p.parseChainArgs()
     discard p.advance()
-  ChainCall(name: name, args: args)
+  var retType = ""
+  if p.peek().kind == tkColon:
+    discard p.advance()
+    if p.peek().kind != tkWord:
+      raise newException(ValueError,
+        "line " & $p.peek().line & ": expected return type name after ':'")
+    retType = p.advance().lexeme
+  ChainCall(name: name, args: args, retType: retType, line: line)
+
+proc parseTypedParam(p: var Parser, base: Arg): Arg =
+  discard p.advance()
+  if p.peek().kind != tkWord:
+    raise newException(ValueError,
+      "line " & $p.peek().line & ": expected type name after ':'")
+  let tname = p.advance().lexeme
+  case base.kind
+  of argWord: typedParamArg(base.word, tname)
+  of argVar: typedParamArg(base.name, tname)
+  else:
+    raise newException(ValueError,
+      "line " & $base.line & ": type annotations only allowed on parameter names")
 
 proc parseChainArgs*(p: var Parser): seq[Arg] =
   let line = p.peek().line
   if p.peek().kind == tkRParen: return @[]
-  result.add(p.parseArg())
+  var first = p.parseArg()
+  if p.peek().kind == tkColon:
+    first = p.parseTypedParam(first)
+  result.add(first)
   while p.peek().kind == tkComma:
     discard p.advance()
-    result.add(p.parseArg())
+    var next = p.parseArg()
+    if p.peek().kind == tkColon:
+      next = p.parseTypedParam(next)
+    result.add(next)
 
 proc parseDotChain(p: var Parser, receiver: string): Arg {.deprecated.} =
   let line = p.peek().line
@@ -89,7 +117,7 @@ proc parseDotChain(p: var Parser, receiver: string): Arg {.deprecated.} =
     discard p.advance()
     let args = p.parseChainArgs()
     discard p.advance()
-    calls.add(ChainCall(name: receiver, args: args))
+    calls.add(ChainCall(name: receiver, args: args, line: line))
     while p.peek().kind == tkDot:
       discard p.advance()
       calls.add(p.parseChainCall())
@@ -117,7 +145,7 @@ proc parsePrimary*(p: var Parser): Arg =
 
   of tkBlock:
     discard p.advance()
-    return p.attachChain(subArg(t.lexeme))
+    return p.attachChain(blockArg(t.lexeme))
 
   of tkDollar:
     discard p.advance()
@@ -129,8 +157,14 @@ proc parsePrimary*(p: var Parser): Arg =
       discard p.advance()
       let args = p.parseChainArgs()
       discard p.advance()
-      var calls: @[ChainCall(name: t.lexeme, args: args)]
-      calls.add(ChainCall(p.collectChainCalls())
+      var calls = @[ChainCall(name: t.lexeme, args: args, retType: "", line: line)]
+      calls.add(p.collectChainCall())
+      if p.peek().kind == tkColon:
+        discard p.advance()
+        if p.peek().kind != tkWord:
+          raise newException(ValueError,
+            "line " & $p.peek().line & ": expected return type name after ':'")
+        calls[0].retType = p.advance().lexeme
       return chainArg(wordArg(""), calls)
     return p.attachChain(wordArg(t.lexeme))
 
@@ -149,17 +183,32 @@ proc parseArg*(p: var Parser): Arg =
 
 proc parseAnnotation(p: var Parser): seq[ChainCall] =
   while p.peek().kind == tkAt:
+    discard p.advance()
     result.add(p.parseChainCall())
     p.skipNewlines()
 
 proc parseStmt*(p: var Parser): Stmt =
-  let annotations = p.parseAnnotations()
+  let annotations = p.parseAnnotation()
   let line = p.peek().line
+  let savedPos = p.pos
+  let first = p.parseArg()
+  if first.kind in {argChain, argInfix} and p.peek().kind in {tkNewline, tkEof}:
+    return Stmt(cmd: "__expr", args: @[first], annotations: annotations, line: line)
+  p.pos = savedPos
   let cmd = p.advance().lexeme
   var args: seq[Arg]
+  if p.peek().kind == tkLParen:
+    discard p.advance()
+    for a in p.parseChainArgs():
+      args.add(a)
+    if p.peek().kind == tkRParen:
+      discard p.advance()
+    else:
+      raise newException(ValueError,
+        "line " & $p.peek().line & ": expected ')' to close call arguments")
   while p.peek().kind notin {tkNewline, tkEof}:
     args.add(p.parseArg())
-  Stmt(cmd: cmd, args: args, line: line)
+  Stmt(cmd: cmd, args: args, annotations: annotations, line: line)
 
 #------ And finally ------------------------------
 proc parse*(tokens: seq[Token]): Program =

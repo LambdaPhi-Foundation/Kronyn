@@ -1,0 +1,4 @@
+set a 12
+set b "this"
+
+printlnln [$a - $b]

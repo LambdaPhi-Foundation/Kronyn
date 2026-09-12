@@ -1,1 +1,4 @@
+src/kronyn
 src/kronyn.exe
+tests/compile/out/
+tests/compile/tmp_*.txt

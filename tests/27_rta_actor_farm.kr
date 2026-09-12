@@ -1,0 +1,19 @@
+# Demo 5: fan-out. The parent farms coarse jobs to actors and aggregates.
+# Each square is computed in its own worker process; actors stay stateless
+# (same input always gives same output) while the parent owns the loop state.
+# Expected: 1, 4, 9, 16, 25, total=55, done.
+@actor
+define square fn(self) {
+    return [$self * $self]
+}
+
+set i 1
+set total 0
+while {$i <= 5} {
+    set sq [$i.square()]
+    writeln $sq
+    set total [$total + $sq]
+    set i [$i + 1]
+}
+writeln ["total=" .. $total]
+writeln "demo5 done"

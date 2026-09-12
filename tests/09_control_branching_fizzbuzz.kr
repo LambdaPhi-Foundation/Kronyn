@@ -1,0 +1,8 @@
+set i 1
+loop {
+     if [$i > 20] {break}
+     if [$i.mod(15) == 0] {writeln "FizzBuzz"} elif [$i.mod(3) == 0] {writeln "Fizz"} elif [$i.mod(5) == 0] {writeln "Buzz"} else {writeln $i}
+     set i [$i + 1]
+}
+
+

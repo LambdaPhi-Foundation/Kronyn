@@ -1,0 +1,45 @@
+# @tailcallopt RTA test: tail self-calls loop in one Nim frame (no stack growth)
+@tailcallopt
+define countdown proc(n, acc) {
+    if [$n == 0] {return $acc} else {return [countdown [$n - 1] [$acc + $n]]}
+}
+writeln [countdown 100000 0]
+
+# frame reset proof: conditionally-set vars must not leak across iterations
+@tailcallopt
+define f proc(n) {
+    if [$n == 2] {set t "two"}
+    if [$n == 0] {return ["got:" .. $t]} else {return [f [$n - 1]]}
+}
+writeln [f 3]
+
+# elif-branch tails
+@tailcallopt
+define pick proc(n, acc) {
+    if [$n == 0] {return $acc} elif [$n == 1] {return [pick 0 [$acc + 100]]} else {return [pick [$n - 1] [$acc + 1]]}
+}
+writeln [pick 5 0]
+
+# dot-chain tail form (fn style)
+@tailcallopt
+define tick fn(self) {
+    if [$self == 0] {return "done"} else {return [$self - 1].tick()}
+}
+writeln 5000.tick()
+
+# non-tail bodies are unaffected (annotation is harmless, still correct)
+@tailcallopt
+define fib fn(self) {
+    if [$self == 0] {return 0} elif [$self == 1] {return 1} else {return [[$self - 1].fib() + [$self - 2].fib()]}
+}
+writeln 10.fib()
+
+# composes with @typecheck (checked per iteration, fail fast)
+@typecheck
+@tailcallopt
+define tsum proc(n: int, acc: int): int {
+    if [$n == 0] {return $acc} else {return [tsum [$n - 1] [$acc + $n]]}
+}
+writeln [tsum 10000 0]
+
+writeln "tailcall tests done"

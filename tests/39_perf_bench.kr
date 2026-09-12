@@ -1,0 +1,23 @@
+# Kronyn benchmark: recursion + loop + string pipeline
+define fib fn(self) {
+    if [$self == 0] {return 0} elif [$self == 1] {return 1} else {return [[$self - 1].fib() + [$self - 2].fib()]}
+}
+writeln 10.fib()
+
+set i 0
+set s 0
+while {$i < 2000} {
+    set s [$s + 1]
+    set i [$i + 1]
+}
+writeln $s
+
+set t "   kronyn language engine   "
+set j 0
+set u ""
+while {$j < 200} {
+    set u [$t.trim().toUpper()]
+    set j [$j + 1]
+}
+writeln $u
+writeln "bench done"

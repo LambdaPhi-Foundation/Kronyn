@@ -1,0 +1,21 @@
+# scene09: @deprecated x @actor. Deprecated actor procs still run;
+# the warn-once notice fires on the caller side only (asserted on
+# stderr by the harness: exactly one line for the whole scene).
+@deprecated("use newproc instead")
+@actor
+define oldactor fn(self) {
+    return [$self + 1]
+}
+
+define check proc(got, want, label) {
+    if [$got == $want] {
+        writeln ["PASS: " .. $label]
+    } else {
+        writeln ["FAIL: " .. $label]
+        syscall proc.exit 1
+    }
+}
+
+check 41.oldactor() 42 "deprecated-actor-runs"
+check 1.oldactor() 2 "deprecated-actor-again"
+writeln "scene09 done"

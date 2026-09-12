@@ -10,6 +10,7 @@ type
     tkLParen,
     tkRParen,
     tkComma,
+    tkColon,
     tkNewline,
 
     #operators

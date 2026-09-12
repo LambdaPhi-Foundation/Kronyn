@@ -1,0 +1,19 @@
+# scene10: spawn stress. Thirty back-to-back minimal actor round
+# trips; every result must round-trip exactly. The harness times the
+# scene to derive per-spawn cost (see PRODUCTION.md).
+@actor
+define echoactor proc(x) {
+    return $x
+}
+
+set i 0
+while {$i < 30} {
+    set back [echoactor $i]
+    if [[$back == $i] == 0] {
+        writeln "FAIL: stress roundtrip"
+        syscall proc.exit 1
+    }
+    set i [$i + 1]
+}
+writeln "PASS: stress-30-roundtrips"
+writeln "scene10 done"

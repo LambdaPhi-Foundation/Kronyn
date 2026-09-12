@@ -1,0 +1,20 @@
+# test options
+set x ["hello".some()]
+writeln [$x.some?()]
+writeln [$x.unwrap()]
+writeln [$x.unwrapOr("default")]
+
+set n [none()]
+writeln [$n.some?()]
+writeln [$n.none?()]
+writeln [$n.unwrapOr("default")]
+
+set mapped [$x.map({$it.toUpper()})]
+writeln [$mapped.unwrap()]
+
+set contents [syscall fs.read "test.txt"]
+if [$contents.some?()] {
+    writeln [$contents.unwrap()]
+} else {
+    writeln "file not found"
+}

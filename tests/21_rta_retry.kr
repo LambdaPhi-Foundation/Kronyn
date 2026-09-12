@@ -1,0 +1,26 @@
+# @retry(n) annotation test: reruns annotated proc up to n times on ValueError
+syscall fs.remove "/tmp/opencode_retry_marker.txt"
+
+@retry(3)
+define flaky proc() {
+    set r [syscall fs.read "/tmp/opencode_retry_marker.txt"]
+    if [$r.none?()] {
+        syscall fs.write "/tmp/opencode_retry_marker.txt" "1"
+        nosuchcmd_boom
+    }
+    return "flaky ok"
+}
+
+writeln [flaky]
+set check [syscall fs.read "/tmp/opencode_retry_marker.txt"]
+writeln ["marker=" .. $check.unwrap()]
+
+@retry(2)
+define alwaysfail proc() {
+    nosuchcmd_boom
+}
+
+set r [try {alwaysfail}]
+if [$r.none?()] {writeln ["exhausted ok: " .. $err]} else {writeln "ERROR: retry should have failed"}
+
+writeln "retry tests done"

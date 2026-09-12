@@ -1,0 +1,9 @@
+# Demo 1: CPU-bound recursion inside an actor.
+# The whole fib tree runs in a worker process; the parent just blocks.
+# Expected: 610, then done.
+@actor
+define afib fn(self) {
+    if [$self == 0] {return 0} elif [$self == 1] {return 1} else {return [[$self - 1].afib() + [$self - 2].afib()]}
+}
+writeln 15.afib()
+writeln "demo1 done"

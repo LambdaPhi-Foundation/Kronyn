@@ -1,0 +1,39 @@
+# trans04: @tailcallopt becomes a real C loop; plain deep recursion
+# and typechecked tail sums ride along.
+define check proc(got, want, label) {
+    if [$got == $want] {
+        writeln ["PASS: " .. $label]
+    } else {
+        writeln ["FAIL: " .. $label]
+        syscall proc.exit 1
+    }
+}
+@tailcallopt
+define countdown proc(n, acc) {
+    if [$n == 0] {
+        return $acc
+    } else {
+        return [countdown [$n - 1] [$acc + $n]]
+    }
+}
+check [countdown 20000 0] 200010000 "tail-20k"
+@tailcallopt
+define tick fn(self) {
+    if [$self == 0] {
+        return "done"
+    } else {
+        return [$self - 1].tick()
+    }
+}
+check 5000.tick() "done" "tail-dot-5k"
+@typecheck
+@tailcallopt
+define tsum proc(n: int, acc: int): int {
+    if [$n == 0] {
+        return $acc
+    } else {
+        return [tsum [$n - 1] [$acc + $n]]
+    }
+}
+check [tsum 5000 0] 12502500 "tail-checked-5k"
+writeln "trans04 done"

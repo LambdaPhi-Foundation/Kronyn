@@ -1,0 +1,22 @@
+# compile-suite: @tailcallopt becomes a real C loop. Twin case
+# (5000 iterations keep the suite fast; depth is covered by 30_rta_tailcall).
+@tailcallopt
+define countdown proc(n, acc) {
+    if [$n == 0] {
+        return $acc
+    } else {
+        return [countdown [$n - 1] [$acc + $n]]
+    }
+}
+writeln [countdown 5000 0]
+define fib fn(self) {
+    if [$self == 0] {
+        return 0
+    } elif [$self == 1] {
+        return 1
+    } else {
+        return [[$self - 1].fib() + [$self - 2].fib()]
+    }
+}
+writeln 10.fib()
+writeln "tailcall done"

@@ -70,7 +70,7 @@ proc lexWord(l: var Lexer): Token =
   var s = ""
   while l.pos < l.src.len and
         l.peek() notin {' ', '\t', '\r', '\n',
-                         '(', ')', ',', '.', '"',
+                         '(', ')', ',', ':', '.', '"',
                          '[', ']', '{', '}', '#',
                          '$', '+', '-', '*', '/',
                          '!', '=', '<', '>', '&', '|', '@'}:
@@ -104,6 +104,7 @@ proc nextToken*(l: var Lexer): Token =
   of '(': discard l.advance(); l.makeToken(tkLParen, "(")
   of ')': discard l.advance(); l.makeToken(tkRParen, ")")
   of ',': discard l.advance(); l.makeToken(tkComma, ",")
+  of ':': discard l.advance(); l.makeToken(tkColon, ":")
   of '+': discard l.advance(); l.makeToken(tkPlus, "+")
   of '-': discard l.advance(); l.makeToken(tkMinus, "-")
   of '*': discard l.advance(); l.makeToken(tkStar, "*")

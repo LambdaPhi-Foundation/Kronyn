@@ -1,0 +1,7 @@
+set msg "Hello world"
+set y 2
+
+writeln $msg
+writeln $y
+
+unknown "This"

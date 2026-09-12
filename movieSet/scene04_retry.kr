@@ -1,0 +1,50 @@
+# scene04: @retry x @actor. Outer retry (above @actor) means each
+# attempt is a fresh worker: attempt 1 fails, attempt 2 sees the marker
+# file left by attempt 1 and succeeds. Marker lives in movieSet so the
+# test is portable (no /tmp dependency).
+syscall fs.remove "movieSet/marker_retry.txt"
+
+@retry(3)
+@actor
+define flaky proc() {
+    set r [syscall fs.read "movieSet/marker_retry.txt"]
+    if [$r.none?()] {
+        syscall fs.write "movieSet/marker_retry.txt" "seen"
+        nosuchcmd_first_try
+    } else {
+        return "flaky ok"
+    }
+}
+
+define check proc(got, want, label) {
+    if [$got == $want] {
+        writeln ["PASS: " .. $label]
+    } else {
+        writeln ["FAIL: " .. $label]
+        syscall proc.exit 1
+    }
+}
+
+check [flaky] "flaky ok" "retry-fresh-worker-per-attempt"
+
+@retry(2)
+@actor
+define hopeless proc() {
+    nosuchcmd_always
+}
+
+set r [try {hopeless}]
+if [$r.none?()] {
+    if [$errkind == "actor"] {
+        writeln "PASS: retry-exhaust-kind-actor"
+    } else {
+        writeln ["FAIL: retry-exhaust-kind got " .. $errkind]
+        syscall proc.exit 1
+    }
+} else {
+    writeln "FAIL: hopeless should have exhausted"
+    syscall proc.exit 1
+}
+
+syscall fs.remove "movieSet/marker_retry.txt"
+writeln "scene04 done"

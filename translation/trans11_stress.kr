@@ -1,0 +1,49 @@
+# trans11: stress — deep loops, string churn, proc farms, deep
+# plain recursion. Twin case (kept fast enough both backends).
+define check proc(got, want, label) {
+    if [$got == $want] {
+        writeln ["PASS: " .. $label]
+    } else {
+        writeln ["FAIL: " .. $label]
+        syscall proc.exit 1
+    }
+}
+set i 0
+set s 0
+while {$i < 50000} {
+    set s [$s + 1]
+    set i [$i + 1]
+}
+check $s 50000 "loop-50k"
+set t "kronyn"
+set j 0
+set u ""
+while {$j < 500} {
+    set u [$t.toUpper() .. "!"]
+    set j [$j + 1]
+}
+check $u "KRONYN!" "churn"
+define echoone proc(x) {
+    return $x
+}
+set k 0
+while {$k < 50} {
+    set back [echoone $k]
+    if [[$back == $k] == 0] {
+        writeln "FAIL: farm roundtrip"
+        syscall proc.exit 1
+    }
+    set k [$k + 1]
+}
+writeln "PASS: farm-50"
+define fib fn(self) {
+    if [$self == 0] {
+        return 0
+    } elif [$self == 1] {
+        return 1
+    } else {
+        return [[$self - 1].fib() + [$self - 2].fib()]
+    }
+}
+check 20.fib() 6765 "fib20"
+writeln "trans11 done"

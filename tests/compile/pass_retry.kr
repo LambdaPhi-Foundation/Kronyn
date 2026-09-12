@@ -1,0 +1,44 @@
+# compile-suite: @retry (fresh window per attempt, exhaustion).
+# Twin case. Marker lives in tests/compile (portable, self-cleaned).
+define check proc(got, want, label) {
+    if [$got == $want] {
+        writeln ["PASS: " .. $label]
+    } else {
+        writeln ["FAIL: " .. $label]
+        syscall proc.exit 1
+    }
+}
+syscall fs.remove "tests/compile/tmp_retry.txt"
+@retry(3)
+define flaky proc() {
+    set r [syscall fs.read "tests/compile/tmp_retry.txt"]
+    if [$r.none?()] {
+        syscall fs.write "tests/compile/tmp_retry.txt" "seen"
+        writeln [10 / 0]
+        return "unreached"
+    } else {
+        return "flaky ok"
+    }
+}
+check [flaky] "flaky ok" "retry-eventual-success"
+@retry(2)
+define alwaysfail proc() {
+    writeln [10 / 0]
+    return "unreached"
+}
+set r [try {alwaysfail}]
+if [$r.none?()] {
+    check $errkind "division" "retry-exhaust-kind"
+} else {
+    writeln "FAIL: alwaysfail should have exhausted"
+    syscall proc.exit 1
+}
+@retry(2)
+define quick proc(x) {
+    return [$x * 2]
+}
+check [quick 21] 42 "retry-fast-path"
+@retry(2)
+writeln "stmt-retry-once"
+syscall fs.remove "tests/compile/tmp_retry.txt"
+writeln "retry done"

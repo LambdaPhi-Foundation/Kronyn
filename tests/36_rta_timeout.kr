@@ -1,0 +1,119 @@
+# @timeout(ms) RTA test: windows expire, misuse is an annotation error.
+# Kill/warn timing is verified manually (see Discipline/TIMEOUT.md); here we assert
+# outcomes and error shapes. Infinite loops use non-empty bodies on
+# their own lines (newline-delimited statements; `loop {}` is an
+# arity error and single-line `{ loop ... return ... }` passes the
+# trailing words as extra args).
+define checkneg proc(code, expected) {
+    set r [try {evolve $code}]
+    if [$r.none?()] {
+        if [[$err.contains($expected)] == "true"] {
+            writeln ["neg-ok: " .. $expected]
+        } else {
+            writeln [["NEG-UNEXPECTED: " .. $err] .. $expected]
+        }
+    } else {
+        writeln ["NEG-NOT-RAISED: " .. $expected]
+    }
+}
+
+define checktimeout proc(code, expected) {
+    set r [try {evolve $code}]
+    if [$r.none?()] {
+        if [[$err.contains($expected)] == "true"] {
+            writeln ["timeout-ok: " .. $expected]
+        } else {
+            writeln [["TIMEOUT-UNEXPECTED: " .. $err] .. $expected]
+        }
+        if [$errkind == "timeout"] {
+            writeln "kind-ok: timeout"
+        } else {
+            writeln ["KIND-UNEXPECTED: " .. $errkind]
+        }
+    } else {
+        writeln ["TIMEOUT-NOT-RAISED: " .. $expected]
+    }
+}
+
+# generous window: runs fine
+@timeout(5000)
+define quick proc(a, b) {
+    return [$a + $b]
+}
+writeln [quick 20 22]
+
+# expired window on an infinite loop: deterministic on any machine
+@timeout(150)
+define hanging proc() {
+    loop {
+        set x 1
+    }
+    return "never"
+}
+checktimeout "hanging" "hanging timed out after 150ms"
+
+# misuse is a define-time annotation error (negative literals are not
+# expressible: `-` lexes as an operator, so 0 covers the positivity rule)
+checkneg "@timeout define bad proc() {return 1}" "requires milliseconds"
+checkneg "@timeout(100, 200) define bad2 proc() {return 1}" "requires milliseconds"
+checkneg "@timeout(\"soon\") define bad3 proc() {return 1}" "must be integer milliseconds"
+checkneg "@timeout(0) define bad4 proc() {return 1}" "must be positive milliseconds"
+checkneg "@timeout(100) @timeout(200) define dup proc() {return 1}" "duplicate @timeout"
+checkneg "@timeou define typo proc() {return 1}" "unknown annotation"
+
+# recursion composes: fast deep recursion inside a big window works
+@timeout(5000)
+@tailcallopt
+define recsum proc(n, acc) {
+    if [$n == 0] {
+        return $acc
+    } else {
+        return [recsum [$n - 1] [$acc + $n]]
+    }
+}
+writeln [recsum 500 0]
+
+# retry interplay: each attempt gets a fresh window, then exhausts
+@timeout(250)
+@retry(2)
+define slowsync proc() {
+    loop {
+        set x 1
+    }
+    return "never"
+}
+checktimeout "slowsync" "slowsync timed out after 250ms"
+
+# typecheck interplay: entry checks run before the window arms
+@timeout(3000)
+@typecheck
+define typedok proc(x: int): int {
+    return [$x + 1]
+}
+writeln [typedok 41]
+set r [try {typedok "notanint"}]
+if [$r.none?()] {
+    writeln ["type-err-ok: " .. $err]
+} else {
+    writeln "ERROR: typecheck should have failed"
+}
+
+# actor interplay: preemptive kill for the slow worker, fast one unaffected
+@timeout(5000)
+@actor
+define fastactor fn(self) {
+    return [$self * 2]
+}
+writeln 21.fastactor()
+
+@timeout(400)
+@actor
+define slowactor fn(self) {
+    loop {
+        set x 1
+    }
+    return $self
+}
+checktimeout "9.slowactor()" "actor slowactor: timed out after 400ms"
+
+writeln "timeout tests done"

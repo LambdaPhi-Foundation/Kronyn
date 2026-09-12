@@ -1,0 +1,48 @@
+# scene08: @timeout x @actor. A bounded fast worker is unaffected; a
+# hung worker is ended preemptively and reports kind `timeout`.
+@timeout(5000)
+@actor
+define quickactor fn(self) {
+    return [$self * 3]
+}
+
+define check proc(got, want, label) {
+    if [$got == $want] {
+        writeln ["PASS: " .. $label]
+    } else {
+        writeln ["FAIL: " .. $label]
+        syscall proc.exit 1
+    }
+}
+
+check 7.quickactor() 21 "bounded-fast-actor"
+
+@timeout(400)
+@actor
+define hungworker fn(self) {
+    loop {
+        set x 1
+    }
+    return $self
+}
+
+set r [try {5.hungworker()}]
+if [$r.none?()] {
+    if [$errkind == "timeout"] {
+        writeln "PASS: hung-killed-kind-timeout"
+    } else {
+        writeln ["FAIL: hung-killed-kind got " .. $errkind]
+        syscall proc.exit 1
+    }
+    if [[$err.contains("timed out after 400ms")] == "true"] {
+        writeln "PASS: hung-killed-msg"
+    } else {
+        writeln ["FAIL: hung-killed-msg got " .. $err]
+        syscall proc.exit 1
+    }
+} else {
+    writeln "FAIL: hungworker should have timed out"
+    syscall proc.exit 1
+}
+
+writeln "scene08 done"

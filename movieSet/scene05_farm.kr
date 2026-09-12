@@ -1,0 +1,25 @@
+# scene05: actor farm. The caller blocks per call (no parallelism in
+# v1), so ten workers run back to back and their results aggregate.
+@actor
+define sq fn(self) {
+    return [$self * $self]
+}
+
+define check proc(got, want, label) {
+    if [$got == $want] {
+        writeln ["PASS: " .. $label]
+    } else {
+        writeln ["FAIL: " .. $label]
+        syscall proc.exit 1
+    }
+}
+
+set total 0
+set i 1
+while {$i <= 10} {
+    set total [$total + $i.sq()]
+    set i [$i + 1]
+}
+check $total 385 "farm-sum-of-squares-1..10"
+check 7.sq() 49 "farm-spot-check"
+writeln "scene05 done"

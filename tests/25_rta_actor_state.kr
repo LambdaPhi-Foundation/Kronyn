@@ -1,0 +1,23 @@
+# Demo 3: state isolation + typed values across the boundary.
+# Actor-local `set` is invisible outside; a List built inside arrives intact.
+# Expected: "a b c", 3, "inner", "outer", done.
+set marker "outer"
+
+@actor
+define buildlist proc() {
+    set marker "inner"
+    set l ["a,b,c".split(",")]
+    return $marker
+}
+
+@actor
+define makelist proc() {
+    return ["a,b,c".split(",")]
+}
+
+writeln [buildlist]
+writeln $marker
+set got [makelist]
+writeln $got
+writeln [$got.len()]
+writeln "demo3 done"

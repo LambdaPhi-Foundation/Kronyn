@@ -1,0 +1,6 @@
+# compile-suite: top-level import splices defines and statements
+# inline (hermetic: no runtime reread). Twin case.
+import "tests/compile/lib_importee.kr"
+writeln [helper 5]
+writeln $libtag
+writeln "import done"

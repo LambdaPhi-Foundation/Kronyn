@@ -1,0 +1,41 @@
+# compile-suite: try shapes (some/none values, err vars). Twin case:
+# only kinds and messages are asserted here (errline differs by design,
+# see delta_errline.kr).
+set r [try {writeln [10 / 0]}]
+if [$r.none?()] {
+    writeln ["caught: " .. $errkind]
+} else {
+    writeln "ERROR: should have been none"
+}
+set r2 [try {writeln "inner-ok"}]
+if [$r2.some?()] {
+    writeln "some-ok"
+} else {
+    writeln "ERROR: should have been some"
+}
+set r3 [try {[none()].unwrap()}]
+if [$r3.none?()] {
+    writeln ["caught2: " .. $errkind]
+} else {
+    writeln "ERROR: unwrap should have failed"
+}
+define early proc(x) {
+    set r [try {writeln [$x / 0]}]
+    if [$r.none?()] {
+        return "caught-inside"
+    }
+    return "uncaught"
+}
+writeln [early 10]
+set i 0
+while {$i < 10} {
+    set r [try {writeln [10 / 0]}]
+    if [$r.none?()] {
+        set i [$i + 1]
+    }
+    if [$i == 3] {
+        break
+    }
+}
+writeln ["broke-at: " .. $i]
+writeln "try done"

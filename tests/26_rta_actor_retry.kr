@@ -1,0 +1,37 @@
+# Demo 4: @retry combined with @actor (transient failure via marker file).
+# Outer retry = each attempt is a fresh worker; attempt 1 fails, 2 succeeds.
+# Expected: "flaky ok", then an exhaustion message, then done.
+syscall fs.remove "/tmp/opencode_demo4_marker.txt"
+
+@retry(3000)
+@actor
+define flaky proc() {
+    set r [syscall fs.read "/tmp/opencode_demo4_marker.txt"]
+    if [$r.none?()] {
+        syscall fs.write "/tmp/opencode_demo4_marker.txt" "seen"
+        nosuchcmd_first_try
+    }
+    return "flaky ok"
+}
+writeln [flaky]
+
+@retry(2)
+@actor
+define hopeless proc() {
+    nosuchcmd_always
+}
+set r [try {hopeless}]
+if [$r.none?()] {writeln "exhausted as expected"} else {writeln "ERROR: should have failed"}
+writeln "demo4 done"
+
+@typecheck 
+@actor
+@retry(3)
+define divtest proc() : int {
+    set n1 [ask "Enter num1: "]
+    set n2 [ask "Enter num2: "]
+    return [$n1 / $n2]
+}
+
+
+writeln [divtest $n1 $n2]

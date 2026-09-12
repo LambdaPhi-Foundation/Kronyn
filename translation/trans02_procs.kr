@@ -1,0 +1,68 @@
+# trans02: user procedures — recursion, dot chains, mutual recursion,
+# shadowing, last-value returns, ?-names, deep plain recursion.
+define check proc(got, want, label) {
+    if [$got == $want] {
+        writeln ["PASS: " .. $label]
+    } else {
+        writeln ["FAIL: " .. $label]
+        syscall proc.exit 1
+    }
+}
+define fib fn(self) {
+    if [$self == 0] {
+        return 0
+    } elif [$self == 1] {
+        return 1
+    } else {
+        return [[$self - 1].fib() + [$self - 2].fib()]
+    }
+}
+check 0.fib() 0 "fib0"
+check 10.fib() 55 "fib10"
+check 15.fib() 610 "fib15"
+define even proc(n) {
+    if [$n == 0] {
+        return "yes"
+    } else {
+        return [odd [$n - 1]]
+    }
+}
+define odd proc(n) {
+    if [$n == 0] {
+        return "no"
+    } else {
+        return [even [$n - 1]]
+    }
+}
+check [even 10] "yes" "mutual-even"
+check [odd 10] "no" "mutual-odd"
+define lastval proc(x) {
+    set y [$x + 1]
+}
+check [lastval 41] 42 "last-value"
+define addnest proc(a, b, c) {
+    return [$a + [$b + $c]]
+}
+check [addnest 1 2 3] 6 "nested-expr"
+define islong? fn(self) {
+    if [$self.len() > 3] {
+        return "long"
+    } else {
+        return "short"
+    }
+}
+check "hello".islong?() "long" "qname-long"
+check "hi".islong?() "short" "qname-short"
+define double fn(self) {
+    return [$self * 2]
+}
+check 21.double().double() 84 "dot-chain"
+define count proc(a) {
+    return "shadowed"
+}
+check [count "x"] "shadowed" "shadow-wins"
+define greet proc(name) {
+    writeln ["hi " .. $name]
+}
+greet "bob"
+writeln "trans02 done"

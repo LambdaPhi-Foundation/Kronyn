@@ -1,0 +1,24 @@
+# scene12: file-syscall discipline through an actor run. Marker files
+# are created, read back, and removed; absence reads as `none`.
+syscall fs.remove "movieSet/marker_cleanup.txt"
+
+syscall fs.write "movieSet/marker_cleanup.txt" "stage-data"
+
+define check proc(got, want, label) {
+    if [$got == $want] {
+        writeln ["PASS: " .. $label]
+    } else {
+        writeln ["FAIL: " .. $label]
+        syscall proc.exit 1
+    }
+}
+
+check [syscall fs.exists "movieSet/marker_cleanup.txt"] 1 "marker-written"
+
+set back [syscall fs.read "movieSet/marker_cleanup.txt"]
+check [$back.unwrap()] "stage-data" "marker-roundtrip"
+
+syscall fs.remove "movieSet/marker_cleanup.txt"
+check [syscall fs.exists "movieSet/marker_cleanup.txt"] 0 "marker-removed"
+check [syscall fs.remove "movieSet/marker_cleanup.txt"].none?() 1 "missing-remove-is-none"
+writeln "scene12 done"

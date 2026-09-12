@@ -1,0 +1,12 @@
+# Builtin functions test
+
+writeln "hello".toUpper()
+writeln "KRoNyn".toLower().len()
+
+writeln "   Untrimmed   ".trim()
+
+writeln ["A".ascii() + 32].char()
+
+writeln "sfdsfkronynsdnoskno".slice(5, 11).index(3)
+
+exec "ls -la"

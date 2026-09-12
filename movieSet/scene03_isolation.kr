@@ -1,0 +1,30 @@
+# scene03: share-nothing isolation. The worker sees builtins plus the
+# actor itself — parent variables are invisible, and worker-side sets
+# never leak back.
+set secret "parent-data"
+
+@actor
+define spy proc() {
+    return $secret
+}
+
+define check proc(got, want, label) {
+    if [$got == $want] {
+        writeln ["PASS: " .. $label]
+    } else {
+        writeln ["FAIL: " .. $label]
+        syscall proc.exit 1
+    }
+}
+
+check [spy] "" "worker-blind-to-parent-vars"
+
+@actor
+define mutator proc() {
+    set secret "child-data"
+    return $secret
+}
+
+check [mutator] "child-data" "worker-own-scope-writes"
+check $secret "parent-data" "parent-scope-untouched"
+writeln "scene03 done"

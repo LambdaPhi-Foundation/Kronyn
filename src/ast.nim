@@ -6,11 +6,14 @@ type
     argBlock,           # {...} lazy
     argVar,             # $name
     argChain,           # x.method().method()
-    argInfix            # x + y, x > y
+    argInfix,           # x + y, x > y
+    argTypedParam       # name: type (define signatures only)
 
   ChainCall* = object
     name*: string
     args*: seq[Arg]
+    retType*: string
+    line*: int
 
   Arg* = ref object
     line*: int
@@ -20,6 +23,9 @@ type
     of argSub: sub*: string
     of argBlock: body*: string
     of argVar: name*: string
+    of argTypedParam:
+      pname*: string
+      ptype*: string
     of argChain:
       receiver*: Arg
       calls*: seq[ChainCall]
@@ -41,6 +47,8 @@ proc strArg*(s: string): Arg = Arg(kind: argString, str: s)
 proc subArg*(s: string): Arg = Arg(kind: argSub, sub: s)
 proc blockArg*(s: string): Arg = Arg(kind: argBlock, body: s)
 proc varArg*(s: string): Arg = Arg(kind: argVar, name: s)
+proc typedParamArg*(pname, ptype: string): Arg =
+  Arg(kind: argTypedParam, pname: pname, ptype: ptype)
 proc chainArg*(r: Arg, calls: seq[ChainCall]): Arg =
   Arg(kind: argChain, receiver: r, calls: calls)
 proc infixArg*(l: Arg, op: string, r: Arg): Arg =

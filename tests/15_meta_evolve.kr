@@ -1,0 +1,3 @@
+set cmd [println "Hello"]
+
+evolve $cmd

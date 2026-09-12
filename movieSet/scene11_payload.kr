@@ -1,0 +1,33 @@
+# scene11: payload integrity. A 2KB string crosses the marshal
+# boundary into the worker and back; size and exact bytes must match.
+# tail-optimized: 200 plain frames would trip the host call-depth limiter.
+@tailcallopt
+define build proc(n, acc) {
+    if [$n == 0] {
+        return $acc
+    } else {
+        return [build [$n - 1] [$acc .. "0123456789"]]
+    }
+}
+
+define check proc(got, want, label) {
+    if [$got == $want] {
+        writeln ["PASS: " .. $label]
+    } else {
+        writeln ["FAIL: " .. $label]
+        syscall proc.exit 1
+    }
+}
+
+set payload [build 200 ""]
+check [$payload.len()] 2000 "payload-size"
+
+@actor
+define identity proc(x) {
+    return $x
+}
+
+set back [identity $payload]
+check [$back.len()] 2000 "payload-roundtrip-size"
+check $back $payload "payload-roundtrip-exact"
+writeln "scene11 done"

@@ -1,0 +1,10 @@
+# compile-suite DELTA case: errline carries the true Kronyn line in
+# compiled code where the walker hardcodes -1 (deviation #1). The
+# runner compares compiled output to delta_errline.expected and only
+# requires the interpreter to exit 0 on the same source.
+set r [try {writeln [10 / 0]}]
+if [$r.none?()] {
+    writeln $errline
+} else {
+    writeln "ERROR"
+}

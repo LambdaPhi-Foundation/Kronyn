@@ -1,0 +1,14 @@
+# compile-suite: @typecheck contracts on valid calls. Twin case
+# (violations are runfail cases: contracts fire at runtime).
+@typecheck
+define adder proc(x: int, y: int): int {
+    return [$x + $y]
+}
+writeln [adder 3 4]
+@typecheck
+define greet proc(name: string): string {
+    return ["hi " .. $name]
+}
+writeln [greet "bob"]
+writeln [adder 10 20]
+writeln "contracts done"

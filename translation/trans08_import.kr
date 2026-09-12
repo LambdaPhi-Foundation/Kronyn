@@ -1,0 +1,14 @@
+# trans08: top-level import splices defines and statements inline
+# (hermetic binary: no runtime reread). Twin case.
+define check proc(got, want, label) {
+    if [$got == $want] {
+        writeln ["PASS: " .. $label]
+    } else {
+        writeln ["FAIL: " .. $label]
+        syscall proc.exit 1
+    }
+}
+import "translation/lib_trans.kr"
+check [helper 5] 50 "imported-proc"
+check $libtag "lib-v1" "imported-binding"
+writeln "trans08 done"

@@ -10,7 +10,7 @@
 ### Key Architectural Highlights
 - **Language-Based OS Vision**: Collapses the boundary between application scripting and operating system shell capabilities.
 - **Dual Engine Design**: High-performance Treewalk Interpreter with AST Caching (Active) transitioning to a Stack-based Bytecode Virtual Machine with S-Expression Assembly IR (**KASM**).
-- **Embedded Kernel (`staticRead`)**: Compile-time embedding of the standard library (`stdlib.kr`), achieving instant startup with zero runtime disk read I/O.
+- **Runtime Essentials + Embedded Fallback**: `essentials.kr` is read at boot (beside the binary, then working directory), with a compile-time embedded copy guaranteeing startup with zero runtime disk read I/O when no file is found.
 - **Zero-Overhead Option Monad**: Native error handling and null-safety built into standard string representations using hidden byte markers.
 
 ---
@@ -65,16 +65,18 @@ flowchart TD
     I --> J[Stack VM Runner vm.nim]
 ```
 
-### 3.1 Embedded Kernel (`staticRead`)
-To eliminate filesystem dependency at boot, `stdlib.kr` is compiled directly into the executable binary:
+### 3.1 Essentials Loading (`essentials.kr` + `staticRead` fallback)
+To keep the binary self-contained while staying editable, `essentials.kr`
+is read at runtime (beside the binary, then working directory), with a
+compile-time embedded copy as fallback:
 
 ```nim
-const STDLIB = staticRead("./stdlib.kr")
+const ESSENTIALS_EMBEDDED = staticRead("./essentials.kr")
 
 proc newInterpreter*(): Env =
   let env = newEnv()
   env.initKernel()
-  discard env.eval(parse(tokenize(STDLIB)))
+  discard env.eval(parse(tokenize(essentialsSource())))
   env
 ```
 
@@ -110,11 +112,17 @@ Built-in Dot Functions interact with Option values:
 - `.unwrapOr(default)`: Returns payload or fallback value.
 
 ### 3.4 System Call Layer (`syscall`)
-System interactions are routed through explicit namespaces:
+System interactions are routed through explicit namespaces, dispatched
+via a registry (`registerSyscall`) with centralized arity checks:
 - `syscall io.output` / `io.outputln`: Standard output.
 - `syscall io.input`: Standard input.
-- `syscall fs.read` / `fs.write`: File operations (returns `Option` values).
-- `syscall proc.exit`: Process termination.
+- `syscall fs.read`: File contents as `some`, missing/unreadable as `none`.
+- `syscall fs.write` / `fs.append`: Write a file.
+- `syscall fs.exists`: Plain `1` / `0`.
+- `syscall fs.remove`: Remove a file (`""`, missing is `none`).
+- `syscall fs.list`: Sorted entry names as a `list`, missing as `none`.
+- `syscall proc.exit [code]`: Process termination.
+- `syscall proc.args`: Script trailing args as a `list` (empty in workers).
 
 ---
 

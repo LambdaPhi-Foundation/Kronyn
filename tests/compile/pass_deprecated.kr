@@ -1,0 +1,10 @@
+# compile-suite: @deprecated still runs; the warn-once stderr notice
+# is asserted by the runner (<name>.stderr.expected must hold exactly
+# one line). Twin case for stdout.
+@deprecated("use newadd instead")
+define oldadd proc(a, b) {
+    return [$a + $b]
+}
+writeln [oldadd 20 22]
+writeln [oldadd 1 2]
+writeln "deprecated done"

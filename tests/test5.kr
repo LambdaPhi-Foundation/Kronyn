@@ -1,5 +1,0 @@
-set i 0
-{[$i < 5]}.iter({
-    writeln $i
-    set i [$i + 1]
-})

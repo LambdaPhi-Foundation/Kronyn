@@ -1,0 +1,5 @@
+set word ""
+
+set word [$word.concat("Hello")]
+
+println $word

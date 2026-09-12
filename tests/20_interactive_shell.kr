@@ -1,0 +1,6 @@
+println "Kronyn shell in kronyn"
+
+loop {
+     set input [ask "intent> "]
+     if [$input == 'exit"] {break} else {evolve $input}
+}

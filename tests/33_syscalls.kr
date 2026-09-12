@@ -1,0 +1,40 @@
+# syscall registry test: arity guards, shapes, new calls
+define checkneg proc(code, expected) {
+    set r [try {evolve $code}]
+    if [$r.none?()] {
+        if [[$err.contains($expected)] == "true"] {writeln ["neg-ok: " .. $expected]} else {writeln ["NEG-UNEXPECTED: " .. $err]}
+    } else {
+        writeln ["NEG-NOT-RAISED: " .. $expected]
+    }
+}
+
+# arity guards (used to escape as IndexDefect tracebacks)
+checkneg {evolve "syscall fs.write \"onlyone\""} "expects 2 args, got 1"
+checkneg {evolve "syscall io.output"} "expects 1 args, got 0"
+checkneg {evolve "syscall fs.read"} "expects 1 args, got 0"
+checkneg {evolve "syscall proc.exit 1 2"} "expects 0..1 args, got 2"
+checkneg {evolve "syscall fs.nope \"x\""} "unknown fs syscall: nope"
+checkneg {evolve "syscall zz.top \"x\""} "unknown syscall namespace: zz"
+
+# exists is a plain int now, not Some-wrapped
+writeln [syscall fs.exists "tests/01_basics_vars_arith.kr"]
+writeln [syscall fs.exists "no-such-file-xyz"]
+
+# unreadable paths read as none (was: raw IOError traceback)
+writeln [syscall fs.read "/tmp"].none?()
+writeln [syscall fs.read "no-such-file-xyz"].none?()
+
+# remove: present ok, missing is none
+syscall fs.write "/tmp/opencode_t31.txt" "x"
+syscall fs.remove "/tmp/opencode_t31.txt"
+writeln [syscall fs.exists "/tmp/opencode_t31.txt"]
+writeln [syscall fs.remove "/tmp/opencode_t31.txt"].none?()
+
+# list a directory, missing dir is none
+writeln [[syscall fs.list "tests"].contains("01_basics_vars_arith.kr")]
+writeln [syscall fs.list "no-such-dir-xyz"].none?()
+
+# argv: empty when no trailing args (passthrough verified manually)
+writeln [[syscall proc.args].len()]
+
+writeln "syscall tests done"

@@ -1,0 +1,23 @@
+# scene07: @tailcallopt x @actor. The flag travels into the worker,
+# so deep tail recursion is safe inside worker processes too.
+@tailcallopt
+@actor
+define countdown proc(n, acc) {
+    if [$n == 0] {
+        return $acc
+    } else {
+        return [countdown [$n - 1] [$acc + $n]]
+    }
+}
+
+define check proc(got, want, label) {
+    if [$got == $want] {
+        writeln ["PASS: " .. $label]
+    } else {
+        writeln ["FAIL: " .. $label]
+        syscall proc.exit 1
+    }
+}
+
+check [countdown 20000 0] 200010000 "actor-tail-20k"
+writeln "scene07 done"

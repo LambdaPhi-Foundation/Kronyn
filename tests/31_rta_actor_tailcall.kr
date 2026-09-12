@@ -1,0 +1,10 @@
+# @tailcallopt x @actor: deep tail recursion inside a worker process
+@tailcallopt
+@actor
+define asum proc(n, acc) {
+    if [$n == 0] {return $acc} else {return [asum [$n - 1] [$acc + $n]]}
+}
+writeln [asum 2000 0]
+writeln [asum 3000 0]
+writeln [asum 4000 0]
+writeln "actor+tailcall done"

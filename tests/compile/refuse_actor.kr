@@ -1,0 +1,2 @@
+@actor
+define f proc() {return 1}

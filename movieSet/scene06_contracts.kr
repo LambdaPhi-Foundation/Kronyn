@@ -1,0 +1,65 @@
+# scene06: @typecheck x @actor. Param violations fail fast in the
+# parent (kind `type`, zero workers spawned); return violations are
+# enforced in the worker and re-checked on return (kind `actor`).
+@typecheck
+@actor
+define adder proc(x: int, y: int): int {
+    return [$x + $y]
+}
+
+define check proc(got, want, label) {
+    if [$got == $want] {
+        writeln ["PASS: " .. $label]
+    } else {
+        writeln ["FAIL: " .. $label]
+        syscall proc.exit 1
+    }
+}
+
+check [adder 3 4] 7 "contract-valid-call"
+
+set r [try {adder "3" 4}]
+if [$r.none?()] {
+    if [$errkind == "type"] {
+        writeln "PASS: contract-param-kind-type"
+    } else {
+        writeln ["FAIL: contract-param-kind got " .. $errkind]
+        syscall proc.exit 1
+    }
+    if [[$err.contains("expects int")] == "true"] {
+        writeln "PASS: contract-param-msg"
+    } else {
+        writeln ["FAIL: contract-param-msg got " .. $err]
+        syscall proc.exit 1
+    }
+} else {
+    writeln "FAIL: bad params should have been rejected pre-spawn"
+    syscall proc.exit 1
+}
+
+@typecheck
+@actor
+define badret proc(x: int): int {
+    return "notanint"
+}
+
+set r2 [try {badret 5}]
+if [$r2.none?()] {
+    if [$errkind == "actor"] {
+        writeln "PASS: contract-return-kind-actor"
+    } else {
+        writeln ["FAIL: contract-return-kind got " .. $errkind]
+        syscall proc.exit 1
+    }
+    if [[$err.contains("must return int")] == "true"] {
+        writeln "PASS: contract-return-msg"
+    } else {
+        writeln ["FAIL: contract-return-msg got " .. $err]
+        syscall proc.exit 1
+    }
+} else {
+    writeln "FAIL: bad return should have been rejected"
+    syscall proc.exit 1
+}
+
+writeln "scene06 done"

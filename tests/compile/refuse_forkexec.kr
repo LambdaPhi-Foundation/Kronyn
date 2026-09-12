@@ -1,0 +1,5 @@
+@forkexec
+define foo proc(x) {
+  return $x
+}
+writeln [foo 1]

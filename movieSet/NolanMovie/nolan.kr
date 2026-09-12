@@ -1,0 +1,23 @@
+# NolanMovie: how many actors can the interpreter handle?
+# Usage: kronyn movieSet/NolanMovie/nolan.kr [N]  (default 100)
+# Self-asserting: PASS line per run, exit 1 on first mismatch.
+# Each round trip is one full @actor spawn (own process, own heap).
+
+@actor
+define nolanEcho fn(self) {
+  return $self
+}
+
+set raw [syscall proc.args]
+set n 100
+if [[$raw.len] > 0] {set n [int [$raw.first()]]}
+
+set i 0
+set fails 0
+loop {
+  if [$i >= $n] {break}
+  set got [$i.nolanEcho()]
+  if [$got != $i] {set fails [$fails + 1]}
+  set i [$i + 1]
+}
+if [$fails == 0] {writeln ["PASS nolan N=" .. $n]} else {syscall proc.exit 1}

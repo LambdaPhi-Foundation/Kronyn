@@ -1,0 +1,55 @@
+
+#----- Print stuff ---------------------------
+@typecheck
+define print proc(msg: string) {syscall io.output $msg}
+@typecheck
+define println proc(msg: string) {syscall io.outputln $msg}
+
+#----- take input -------------------------
+@typecheck
+define ask proc($prompt: string): string {
+       syscall io.output $prompt
+       return [syscall io.input]
+}
+
+
+
+@typecheck
+define readfile proc(path: string) {return [syscall fs.read $path]}
+
+@typecheck
+define writefile proc(path: string, contents: string): string {syscall fs.write $path $contents}
+
+#----- Algorithms ---------------------------
+@typecheck
+define fib fn(self: int): int {
+    if [$self == 0] {return 0} elif [$self == 1] {return 1} else {return [[$self - 1].fib() + [$self - 2].fib()]}
+}
+
+@typecheck
+define factorial fn(self: int): int {
+    if [$self == 0] {return 1} else {return [$self * [$self - 1].factorial()]}
+}
+
+@typecheck
+define reverse fn(self: string): string {
+    set result ""
+    set i [$self.len() - 1]
+    loop {
+        if [$i < 0] {break}
+        set result [$result .. $self.index($i)]
+        set i [$i - 1]
+    }
+    return $result
+}
+
+@typecheck
+define isPalindrome fn(self: string): string {
+    if [$self.reverse() == $self] {return "true"} else {return "false"}
+}
+
+@typecheck
+@tailcallopt
+define sum proc(n: int, acc: int): int {
+    if [$n == 0] {return $acc} else {return [sum [$n - 1] [$acc + $n]]}
+}

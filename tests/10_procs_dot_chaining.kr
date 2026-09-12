@@ -1,0 +1,45 @@
+define double fn(self) {
+       return [$self * 2]
+}
+
+writeln 5.double()
+writeln 3.double()
+
+define addOne fn(self) {
+       return [$self + 1]
+}
+
+writeln 5.double().addOne()
+writeln 3.addOne().double()
+
+define greet proc(name) {
+       writeln ["Hello " .. $name]
+}
+
+greet "brahma"
+greet "World"
+
+define add proc(a, b) {
+       writeln [$a + $b]
+}
+
+add 10 20
+add 2 7
+
+define factorial fn(self) {
+       if [$self == 0] {return 1} {return [$self * [$self - 1].factorial()]}
+}
+
+writeln 0.factorial()
+writeln 1.factorial()
+writeln 5.factorial()
+writeln 10.factorial()
+
+define printer proc(msg, n) {
+       if [$n == 0] {return ""} {
+       	  writeln $msg
+	  printer $msg [$n - 1]
+	}
+}
+
+printer "Kronyn" 5

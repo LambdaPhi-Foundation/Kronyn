@@ -1,0 +1,8 @@
+@timeout(150)
+define hanging proc() {
+    loop {
+        set x 1
+    }
+    return "never"
+}
+writeln [hanging]

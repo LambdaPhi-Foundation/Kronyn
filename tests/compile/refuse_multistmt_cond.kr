@@ -1,0 +1,5 @@
+set x 0
+while {set x [$x + 1]
+$x < 3} {
+    writeln $x
+}

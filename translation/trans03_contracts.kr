@@ -1,0 +1,52 @@
+# trans03: @typecheck contracts — valid calls run; violations are
+# caught with try (kinds/messages asserted, no errline: true-line rule
+# differs from the walker's -1 by design, see COMPILE.md #1).
+define check proc(got, want, label) {
+    if [$got == $want] {
+        writeln ["PASS: " .. $label]
+    } else {
+        writeln ["FAIL: " .. $label]
+        syscall proc.exit 1
+    }
+}
+@typecheck
+define adder proc(x: int, y: int): int {
+    return [$x + $y]
+}
+check [adder 3 4] 7 "contract-valid"
+@typecheck
+define showem proc(a: int, b: string): string {
+    return [$b .. "!"]
+}
+check [showem 1 "hey"] "hey!" "contract-mixed"
+set r [try {adder "3" 4}]
+if [$r.none?()] {
+    check $errkind "type" "param-kind"
+    if [[$err.contains("expects int")] == "true"] {
+        writeln "PASS: param-msg"
+    } else {
+        writeln ["FAIL: param-msg got " .. $err]
+        syscall proc.exit 1
+    }
+} else {
+    writeln "FAIL: bad params accepted"
+    syscall proc.exit 1
+}
+@typecheck
+define badret proc(x: int): int {
+    return "notanint"
+}
+set r2 [try {badret 5}]
+if [$r2.none?()] {
+    check $errkind "type" "return-kind"
+    if [[$err.contains("must return int")] == "true"] {
+        writeln "PASS: return-msg"
+    } else {
+        writeln ["FAIL: return-msg got " .. $err]
+        syscall proc.exit 1
+    }
+} else {
+    writeln "FAIL: bad return accepted"
+    syscall proc.exit 1
+}
+writeln "trans03 done"

@@ -1,0 +1,60 @@
+# @actor RTA test: isolated coarse-task calls (own process, own GC + heap)
+@actor
+define afib fn(self) {
+    if [$self == 0] {return 0} elif [$self == 1] {return 1} else {return [[$self - 1].afib() + [$self - 2].afib()]}
+}
+writeln 10.afib()
+
+@actor
+define pureadd fn(self, x) {
+    return [$self + $x]
+}
+writeln [7.pureadd(8)]
+
+# isolation: writes inside the actor are invisible outside
+set marker "outer"
+@actor
+define iso proc() {
+    set marker "inner"
+    return $marker
+}
+writeln [iso]
+writeln $marker
+
+# error propagation out of the actor
+@actor
+define boom proc() {
+    nosuchcmd_here
+}
+set r [try {boom}]
+if [$r.none?()] {writeln "actor err ok"} else {writeln "ERROR: should have failed"}
+
+# retry outside actor: each attempt is a fresh worker
+syscall fs.remove "/tmp/opencode_actor_marker.txt"
+@retry(2)
+@actor
+define flaky proc() {
+    set r [syscall fs.read "/tmp/opencode_actor_marker.txt"]
+    if [$r.none?()] {
+        syscall fs.write "/tmp/opencode_actor_marker.txt" "1"
+        nosuchcmd_first_attempt
+    }
+    return "flaky actor ok"
+}
+writeln [flaky]
+
+# retry inside actor: one worker, attempts share its heap
+syscall fs.remove "/tmp/opencode_actor_marker2.txt"
+@actor
+@retry(2)
+define flaky2 proc() {
+    set r [syscall fs.read "/tmp/opencode_actor_marker2.txt"]
+    if [$r.none?()] {
+        syscall fs.write "/tmp/opencode_actor_marker2.txt" "1"
+        nosuchcmd_first_attempt
+    }
+    return "flaky2 actor ok"
+}
+writeln [flaky2]
+
+writeln "actor tests done"

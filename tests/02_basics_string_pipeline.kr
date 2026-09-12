@@ -1,0 +1,5 @@
+set name "   Hello  "
+
+set newname [$name.trim().toUpper().replace("e", "o").concat(" world")]
+
+println $newname

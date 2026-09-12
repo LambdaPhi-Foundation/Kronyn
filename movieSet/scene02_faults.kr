@@ -1,0 +1,63 @@
+# scene02: worker faults come back as catchable `actor` errors, and a
+# worker that dies without a result file reports its exit code.
+@actor
+define divider proc(a, b) {
+    return [$a / $b]
+}
+
+set r [try {divider 10 0}]
+if [$r.none?()] {
+    if [$errkind == "actor"] {
+        writeln "PASS: fault-kind-actor"
+    } else {
+        writeln ["FAIL: fault-kind got " .. $errkind]
+        syscall proc.exit 1
+    }
+    if [[$err.contains("division by zero")] == "true"] {
+        writeln "PASS: fault-division-msg"
+    } else {
+        writeln ["FAIL: fault-division-msg got " .. $err]
+        syscall proc.exit 1
+    }
+} else {
+    writeln "FAIL: divider should have raised"
+    syscall proc.exit 1
+}
+
+@actor
+define badcmd proc() {
+    nosuchcmd_boom
+}
+
+set r2 [try {badcmd}]
+if [$r2.none?()] {
+    if [[$err.contains("unknown command")] == "true"] {
+        writeln "PASS: fault-unknown-command-msg"
+    } else {
+        writeln ["FAIL: fault-unknown-command got " .. $err]
+        syscall proc.exit 1
+    }
+} else {
+    writeln "FAIL: badcmd should have raised"
+    syscall proc.exit 1
+}
+
+@actor
+define crasher proc() {
+    syscall proc.exit 3
+}
+
+set r3 [try {crasher}]
+if [$r3.none?()] {
+    if [[$err.contains("worker failed (exit 3)")] == "true"] {
+        writeln "PASS: fault-crash-exit-code"
+    } else {
+        writeln ["FAIL: fault-crash got " .. $err]
+        syscall proc.exit 1
+    }
+} else {
+    writeln "FAIL: crasher should have raised"
+    syscall proc.exit 1
+}
+
+writeln "scene02 done"

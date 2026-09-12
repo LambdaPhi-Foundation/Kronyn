@@ -1,0 +1,5 @@
+define loader proc() {
+    import "tests/compile/lib_importee.kr"
+    return [helper 1]
+}
+writeln [loader]

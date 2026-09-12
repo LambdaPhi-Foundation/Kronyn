@@ -1,0 +1,44 @@
+# compile-suite: user procedures (recursion, dot chains, mutual
+# recursion, shadowing, last-value returns, ?-names). Twin case.
+define join2 proc(a, b) {
+    return [$a .. $b]
+}
+writeln [join2 "x" "y"]
+define even proc(n) {
+    if [$n == 0] {
+        return "yes"
+    } else {
+        return [odd [$n - 1]]
+    }
+}
+define odd proc(n) {
+    if [$n == 0] {
+        return "no"
+    } else {
+        return [even [$n - 1]]
+    }
+}
+writeln [even 10]
+writeln [odd 10]
+define lastval proc(x) {
+    set y [$x + 1]
+}
+writeln [lastval 41]
+define addnest proc(a, b, c) {
+    return [$a + [$b + $c]]
+}
+writeln [addnest 1 2 3]
+define islong? fn(self) {
+    if [$self.len() > 3] {
+        return "long"
+    } else {
+        return "short"
+    }
+}
+writeln "hello".islong?()
+writeln "hi".islong?()
+define count proc(a) {
+    return "shadowed"
+}
+writeln [count "x"]
+writeln "procs done"

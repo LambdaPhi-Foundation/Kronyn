@@ -1,0 +1,5 @@
+@typecheck
+define badret proc(x: int): int {
+    return "notanint"
+}
+writeln [badret 5]

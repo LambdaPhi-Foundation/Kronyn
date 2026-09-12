@@ -1,0 +1,46 @@
+# error handling test: arity guards, conversions, traces, err quadruple
+define checkneg proc(code, expected) {
+    set r [try {evolve $code}]
+    if [$r.none?()] {
+        if [[$err.contains($expected)] == "true"] {writeln ["neg-ok: " .. $expected]} else {writeln ["NEG-UNEXPECTED: " .. $err]}
+    } else {
+        writeln ["NEG-NOT-RAISED: " .. $expected]
+    }
+}
+
+# central builtin arity (used to escape as IndexDefect tracebacks)
+checkneg "writeln" "writeln expects 1 args, got 0"
+checkneg "toUpper" "toUpper expects 1 args, got 0"
+checkneg "writeln [\"hi\".slice(0)]" "slice expects 3 args, got 2"
+
+# defect conversions (used to escape as raw Nim tracebacks)
+checkneg "writeln [10 / 0]" "division by zero"
+checkneg "writeln [10.mod(0)]" "division by zero"
+checkneg "writeln 99999.char()" "char code out of range"
+checkneg "writeln \"hi\".slice(5, 9)" "slice out of bounds"
+checkneg "writeln \"hi\".index(9)" "index out of bounds"
+checkneg "writeln [none()].unwrap()" "unwrap called on none"
+
+# structured fields: kind + line + trace snapshot
+define boom proc() {
+    nosuchcmd_inner
+}
+set r [try {boom}]
+writeln $errkind
+writeln $errline
+writeln [$errtrace.contains("at boom")]
+
+# fallback for plain ValueError (no kind/line attached)
+set r2 [try {writeln ["abc".int()]}]
+writeln $errkind
+writeln $errline
+
+# shadowing a builtin drops its contract (custom arity rules)
+define len proc(a, b) {
+    return [$a .. $b]
+}
+writeln [len "x" "y"]
+
+# control: slice still works in bounds
+writeln "hello".slice(1, 4)
+writeln "error tests done"

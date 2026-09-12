@@ -1,0 +1,5 @@
+# trans09b: proc.exit code. The harness asserts exit code 7 from
+# both backends (this scene terminates by design).
+writeln "exiting"
+syscall proc.exit 7
+writeln "unreached"

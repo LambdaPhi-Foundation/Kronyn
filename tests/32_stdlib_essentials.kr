@@ -1,0 +1,38 @@
+# essentials smoke test: every essentials intent + kernel predicates,
+# negatives hidden inside evolve (define-time errors are catchable there)
+println "essentials smoke"
+writeln 10.fib()
+writeln 5.factorial()
+writeln "hello".reverse()
+writeln "racecar".isPalindrome()
+writeln "kronyn".isPalindrome()
+writeln [sum 100 0]
+writeln [typeof 7]
+writeln [typeof "s"]
+writeln [typeof ["a,b".split(",")]]
+writeln [typeof ["v".some()]]
+writeln [typeof [none()]]
+writeln [isInt 7]
+writeln [isInt "7"]
+writeln [isString "7"]
+writeln [isList ["a,b".split(",")]]
+writeln [readfile "tests/01_basics_vars_arith.kr"].some?()
+writefile "/tmp/opencode_essentials_smoke.txt" "smoke-data"
+writeln [readfile "/tmp/opencode_essentials_smoke.txt"].unwrap()
+
+define checkneg proc(code, expected) {
+    set r [try {evolve $code}]
+    if [$r.none?()] {
+        if [[$err.contains($expected)] == "true"] {writeln ["neg-ok: " .. $expected]} else {writeln ["NEG-UNEXPECTED: " .. $err]}
+    } else {
+        writeln ["NEG-NOT-RAISED: " .. $expected]
+    }
+}
+
+checkneg "fib ten" "expects int"
+checkneg "println 5" "expects string"
+checkneg "reverse 5" "expects string"
+checkneg "@typecheck define bad proc(x: floot) {return $x}" "unknown type"
+checkneg "@typecheck define bad2 proc(x) {return $x}" "requires a declared type"
+checkneg "@typecheck define bad3 proc(x: int)" "define requires"
+writeln "essentials smoke done"
